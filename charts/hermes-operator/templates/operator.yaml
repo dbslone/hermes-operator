@@ -1,0 +1,101 @@
+{{- $fullname := include "hermes-operator.fullname" . -}}
+{{- if .Values.serviceAccount.create }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "hermes-operator.serviceAccountName" . }}
+  labels: {{- include "hermes-operator.labels" . | nindent 4 }}
+---
+{{- end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $fullname }}-defaults
+  labels: {{- include "hermes-operator.labels" . | nindent 4 }}
+data:
+  defaults.yaml: |
+    {{- toYaml .Values.agentDefaults | nindent 4 }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $fullname }}
+  labels: {{- include "hermes-operator.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector:
+    matchLabels: {{- include "hermes-operator.selector" . | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "hermes-operator.selector" . | nindent 8 }}
+      annotations:
+        checksum/defaults: {{ toYaml .Values.agentDefaults | sha256sum }}
+    spec:
+      serviceAccountName: {{ include "hermes-operator.serviceAccountName" . }}
+      securityContext: { runAsNonRoot: true, seccompProfile: { type: RuntimeDefault } }
+      containers:
+        - name: operator
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - --watch-namespace={{ include "hermes-operator.watchNamespace" . }}
+            - --agent-namespace={{ include "hermes-operator.agentNamespace" . }}
+            - --defaults-file=/etc/hermes-operator/defaults.yaml
+          ports:
+            - { name: http, containerPort: 8090 }
+          livenessProbe: { httpGet: { path: /healthz, port: 8081 } }
+          readinessProbe: { httpGet: { path: /readyz, port: 8081 } }
+          securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: { drop: [ALL] } }
+          resources: {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - { name: defaults, mountPath: /etc/hermes-operator }
+      volumes:
+        - name: defaults
+          configMap: { name: {{ $fullname }}-defaults }
+      {{- with .Values.nodeSelector }}
+      nodeSelector: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity: {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $fullname }}
+  labels: {{- include "hermes-operator.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  selector: {{- include "hermes-operator.selector" . | nindent 4 }}
+  ports:
+    - { name: http, port: {{ .Values.service.port }}, targetPort: http }
+{{- if .Values.ingress.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $fullname }}
+  labels: {{- include "hermes-operator.labels" . | nindent 4 }}
+  {{- with .Values.ingress.annotations }}
+  annotations: {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .Values.ingress.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  {{- with .Values.ingress.tls }}
+  tls: {{- toYaml . | nindent 4 }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.ingress.host }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service: { name: {{ $fullname }}, port: { name: http } }
+{{- end }}

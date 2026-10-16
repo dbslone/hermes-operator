@@ -1,0 +1,71 @@
+image:
+  repository: ghcr.io/dbslone/hermes-operator   # change to wherever you publish the image
+  tag: ""                                         # defaults to Chart appVersion
+  pullPolicy: IfNotPresent
+
+# Namespace the operator watches.
+#   ""  -> the release namespace (Role, least privilege)
+#   "*" -> every namespace (ClusterRole)
+#   any other value -> that namespace
+watchNamespace: ""
+
+# Namespace where agents created from the UI / MCP / REST API are placed.
+# Defaults to the watched namespace (or the release namespace when watching all).
+agentNamespace: ""
+
+# Applied to every agent unless the agent sets its own value.
+agentDefaults:
+  image: nousresearch/hermes-agent:stable
+  # Requests are set so agents perform well out of the box. Raise them (and
+  # add a cpu limit) on big machines, or override per agent via spec.resources.
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      memory: 4Gi
+  storage:
+    size: 2Gi
+    storageClassName: ""   # "" = cluster default
+  # Optional existing Secret whose keys are injected as env vars into every
+  # agent (e.g. OPENROUTER_API_KEY, ANTHROPIC_API_KEY). Lets you create agents
+  # in the UI without pasting keys each time.
+  envFromSecret: ""
+
+# Resources for the operator pod itself.
+resources:
+  requests:
+    cpu: 25m
+    memory: 48Mi
+  limits:
+    memory: 128Mi
+
+# UI + REST + MCP endpoint. There is NO authentication: keep it cluster-internal,
+# or put an authenticating proxy / ingress in front of it.
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  host: hermes.example.com
+  tls: []   # [{secretName: x, hosts: [hermes.example.com]}]
+
+# Declare agents in Helm values (optional). Each key becomes a HermesAgent;
+# the value is the HermesAgent spec.
+agents: {}
+#  research-bot:
+#    model: {provider: openrouter, name: nousresearch/hermes-4-405b}
+#    soul: You are a research assistant.
+#    resources:
+#      requests: {cpu: "2", memory: 4Gi}
+
+serviceAccount:
+  create: true
+  name: ""
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

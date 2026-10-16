@@ -1,0 +1,10 @@
+{{- range $name, $spec := .Values.agents }}
+---
+apiVersion: hermesoperator.io/v1alpha1
+kind: HermesAgent
+metadata:
+  name: {{ $name }}
+  namespace: {{ include "hermes-operator.agentNamespace" $ }}
+  labels: {{- include "hermes-operator.labels" $ | nindent 4 }}
+spec: {{- toYaml $spec | nindent 2 }}
+{{- end }}

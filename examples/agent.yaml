@@ -1,0 +1,19 @@
+apiVersion: hermesoperator.io/v1alpha1
+kind: HermesAgent
+metadata:
+  name: research-bot
+spec:
+  model:
+    provider: openrouter
+    name: nousresearch/hermes-4-405b
+  soul: |
+    You are a concise research assistant.
+  # Provider keys: either set agentDefaults.envFromSecret on the chart, or per agent:
+  envFrom:
+    - secretRef: {name: my-llm-keys}
+  # Optional overrides (defaults come from the chart):
+  # resources:
+  #   requests: {cpu: "4", memory: 8Gi}
+  #   limits:   {cpu: "8", memory: 16Gi}
+  # storage: {size: 10Gi}
+  # dashboard: true

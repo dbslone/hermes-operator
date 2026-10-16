@@ -1,0 +1,41 @@
+{{- $all := eq .Values.watchNamespace "*" -}}
+{{- $fullname := include "hermes-operator.fullname" . -}}
+{{- $kind := ternary "ClusterRole" "Role" $all -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: {{ $kind }}
+metadata:
+  name: {{ $fullname }}
+  {{- if not $all }}
+  namespace: {{ include "hermes-operator.watchNamespace" . }}
+  {{- end }}
+  labels: {{- include "hermes-operator.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [hermesoperator.io]
+    resources: [hermesagents]
+    verbs: [get, list, watch, create, update, patch, delete]
+  - apiGroups: [hermesoperator.io]
+    resources: [hermesagents/status]
+    verbs: [get, update, patch]
+  - apiGroups: [apps]
+    resources: [statefulsets]
+    verbs: [get, list, watch, create, update, patch, delete]
+  - apiGroups: [""]
+    resources: [services, configmaps, secrets]
+    verbs: [get, list, watch, create, update, patch, delete]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: {{ $kind }}Binding
+metadata:
+  name: {{ $fullname }}
+  {{- if not $all }}
+  namespace: {{ include "hermes-operator.watchNamespace" . }}
+  {{- end }}
+  labels: {{- include "hermes-operator.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: {{ $kind }}
+  name: {{ $fullname }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "hermes-operator.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}

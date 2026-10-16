@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hermes Agents</title>
+<style>
+  :root{--bg:#f6f7f9;--card:#fff;--fg:#14171f;--mut:#667085;--line:#e3e6ec;--acc:#4f46e5;--ok:#16a34a;--warn:#d97706;--bad:#dc2626}
+  @media (prefers-color-scheme:dark){:root{--bg:#0e1116;--card:#171b22;--fg:#e8ebf0;--mut:#8b94a5;--line:#262c38;--acc:#818cf8}}
+  *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.45 system-ui,sans-serif}
+  main{max-width:960px;margin:0 auto;padding:24px 16px}
+  header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:20px}
+  h1{font-size:20px;margin:0}
+  button{font:inherit;cursor:pointer;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--fg);padding:7px 14px}
+  button.primary{background:var(--acc);border-color:var(--acc);color:#fff}
+  button.danger{color:var(--bad)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:6px}
+  .card h2{margin:0;font-size:15px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .mut{color:var(--mut);font-size:12px;word-break:break-all}
+  .pill{font-size:11px;padding:2px 8px;border-radius:99px;border:1px solid currentColor}
+  .Ready{color:var(--ok)} .Pending{color:var(--warn)} .Failed{color:var(--bad)} .Suspended{color:var(--mut)}
+  .empty{padding:40px;text-align:center;color:var(--mut);border:1px dashed var(--line);border-radius:12px}
+  dialog{border:1px solid var(--line);border-radius:14px;background:var(--card);color:var(--fg);width:min(480px,calc(100vw - 32px));padding:20px}
+  dialog::backdrop{background:#0008}
+  label{display:block;margin:10px 0 3px;font-size:12px;color:var(--mut)}
+  input,textarea,select{width:100%;font:inherit;padding:7px 9px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--fg)}
+  textarea{min-height:70px;resize:vertical}
+  .row{display:flex;gap:8px} .row>*{flex:1}
+  details{margin-top:12px} summary{cursor:pointer;color:var(--mut)}
+  .actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
+  #err{color:var(--bad);margin-top:10px;min-height:1em}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Hermes Agents</h1>
+    <button class="primary" id="new">+ New agent</button>
+  </header>
+  <div id="list" class="grid"></div>
+</main>
+
+<dialog id="dlg">
+  <form id="form" method="dialog">
+    <h2 style="margin:0 0 4px">New agent</h2>
+    <label>Name</label><input id="name" required pattern="[a-z][-a-z0-9]{0,38}[a-z0-9]?" placeholder="research-bot">
+    <div class="row">
+      <div><label>Provider</label><input id="provider" placeholder="openrouter"></div>
+      <div><label>Model</label><input id="model" placeholder="nousresearch/hermes-4-405b"></div>
+    </div>
+    <label>Soul / instructions (optional)</label><textarea id="soul" placeholder="You are a helpful research assistant…"></textarea>
+    <details>
+      <summary>API keys &amp; advanced</summary>
+      <label>Environment variables, one per line as KEY=value (leave empty to use shared operator keys)</label>
+      <textarea id="env" placeholder="OPENROUTER_API_KEY=sk-..." spellcheck="false"></textarea>
+      <label>Base URL (custom OpenAI-compatible endpoint)</label><input id="baseurl">
+      <div class="row">
+        <div><label>CPU request</label><input id="cpuReq" placeholder="default"></div>
+        <div><label>Memory request</label><input id="memReq" placeholder="default"></div>
+      </div>
+      <div class="row">
+        <div><label>CPU limit</label><input id="cpuLim" placeholder="default"></div>
+        <div><label>Memory limit</label><input id="memLim" placeholder="default"></div>
+      </div>
+      <label>Storage size</label><input id="storage" placeholder="default (2Gi)">
+      <label style="display:flex;gap:8px;align-items:center;margin-top:12px"><input type="checkbox" id="dash" style="width:auto"> Enable Hermes dashboard</label>
+    </details>
+    <div id="err"></div>
+    <div class="actions">
+      <button type="button" id="cancel">Cancel</button>
+      <button class="primary" id="create" type="submit">Create</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+const $ = id => document.getElementById(id);
+const api = (path, opts) => fetch(path, opts).then(async r => {
+  const j = await r.json(); if (!r.ok) throw new Error(j.error || r.statusText); return j; });
+
+async function load() {
+  try {
+    const agents = await api('api/agents');
+    $('list').innerHTML = agents.length ? '' : '<div class="empty" style="grid-column:1/-1">No agents yet. Create your first one.</div>';
+    for (const a of agents) {
+      const el = document.createElement('div'); el.className = 'card';
+      el.innerHTML = `<h2><span></span><span class="pill ${a.phase}">${a.phase}</span></h2>
+        <div class="mut"></div><div class="mut"></div><div class="mut"></div>
+        <div><button class="danger">Delete</button></div>`;
+      el.querySelector('h2 span').textContent = a.name;
+      const m = el.querySelectorAll('.mut');
+      m[0].textContent = [a.provider, a.model].filter(Boolean).join(' / ') || 'default model';
+      m[1].textContent = a.endpoint || '';
+      m[2].textContent = a.apiKeySecret ? `key: kubectl get secret ${a.apiKeySecret} -n ${a.namespace}` : '';
+      el.querySelector('button').onclick = async () => {
+        if (el.dataset.arm !== '1') { el.dataset.arm = '1'; el.querySelector('button').textContent = 'Click again to delete'; return; }
+        await api('api/agents/' + a.name, {method: 'DELETE'}).catch(e => alert(e.message)); load();
+      };
+      $('list').append(el);
+    }
+  } catch (e) { $('list').innerHTML = `<div class="empty" style="grid-column:1/-1">${e.message}</div>`; }
+}
+
+$('new').onclick = () => { $('err').textContent = ''; $('dlg').showModal(); };
+$('cancel').onclick = () => $('dlg').close();
+$('form').onsubmit = async ev => {
+  ev.preventDefault();
+  const env = {};
+  for (const line of $('env').value.split('\n')) {
+    const i = line.indexOf('='); if (i > 0) env[line.slice(0, i).trim()] = line.slice(i + 1).trim();
+  }
+  const pick = (c, m) => { const o = {}; if ($(c).value) o.cpu = $(c).value; if ($(m).value) o.memory = $(m).value; return o; };
+  const requests = pick('cpuReq', 'memReq'), limits = pick('cpuLim', 'memLim');
+  const body = { name: $('name').value, soul: $('soul').value, env, dashboard: $('dash').checked,
+    storageSize: $('storage').value,
+    model: { provider: $('provider').value, name: $('model').value, baseURL: $('baseurl').value } };
+  if (Object.keys(requests).length || Object.keys(limits).length) body.resources = { requests, limits };
+  try {
+    await api('api/agents', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
+    $('dlg').close(); $('form').reset(); load();
+  } catch (e) { $('err').textContent = e.message; }
+};
+load(); setInterval(load, 4000);
+</script>
+</body>
+</html>
