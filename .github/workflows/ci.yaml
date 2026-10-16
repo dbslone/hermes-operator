@@ -1,8 +1,16 @@
 name: ci
+# While the project is in early development CI runs on every commit to any branch.
+# When we move to PR-only checks, replace the `push` trigger below with
+# `pull_request:` (see plans/0004-ci-on-every-commit.md). The PR-only "adds a plan"
+# rule lives in pr-plan.yaml so the heavy jobs never run twice.
 on:
   push:
-    branches: [main]
-  pull_request:
+    branches: ["**"]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   unit:
@@ -30,11 +38,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
-      - name: plans are linked and named correctly
+      - name: plans are named correctly and linked from README
         run: test/plans.sh
-      - name: every PR adds a plan
-        if: github.event_name == 'pull_request'
-        run: BASE_REF=origin/${{ github.base_ref }} test/plans.sh
 
   e2e:
     runs-on: ubuntu-latest

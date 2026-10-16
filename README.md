@@ -107,6 +107,7 @@ Design decisions, test strategy and review gates live in [`plans/`](plans/). Eve
 | [0001 – How we got here](plans/0001-how-we-got-here.md) | Requirements, architecture diagrams, every technology choice and why, build history, testing, bugs found, known gaps |
 | [0002 – PR review and test gates](plans/0002-pr-review-and-test-gates.md) | Review checklist, which tests each kind of change needs, CI gates, 90% coverage rule |
 | [0003 – Test coverage map](plans/0003-test-coverage-map.md) | Every promise mapped to the tests that protect it; exclusions and gaps |
+| [0004 – CI on every commit](plans/0004-ci-on-every-commit.md) | Why CI runs on every push for now, and the one-line switch to PR-only later |
 | [Template](plans/TEMPLATE.md) | Copy to `plans/NNNN-slug.md` for your PR |
 
 ## License

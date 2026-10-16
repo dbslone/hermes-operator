@@ -1,0 +1,13 @@
+name: pr-plan
+# Only the rule that needs a pull request: it must add a new plan (CLAUDE.md).
+# All other checks run in ci.yaml on every push.
+on:
+  pull_request:
+
+jobs:
+  adds-a-plan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - run: BASE_REF=origin/${{ github.base_ref }} test/plans.sh

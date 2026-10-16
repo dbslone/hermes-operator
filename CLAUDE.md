@@ -19,6 +19,10 @@ Applies to humans and AI agents alike.
 - Run `make check` before pushing; run `make e2e` (against a throwaway cluster, never a shared one) for anything touching reconcile, RBAC or the chart.
 - See `plans/0002-pr-review-and-test-gates.md` for the full review checklist.
 
+## CI
+
+- `ci.yaml` runs unit (90% gate), chart, plans and e2e jobs on **every push to any branch** while the project is in early development. `pr-plan.yaml` runs only on pull requests and enforces "adds a new plan". To move to PR-only checks, follow `plans/0004-ci-on-every-commit.md`.
+
 ## Tooling
 
 - No local Go toolchain is assumed: the Makefile runs Go inside Docker (`golang:1.26`).
