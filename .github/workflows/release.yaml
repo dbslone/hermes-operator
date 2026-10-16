@@ -1,7 +1,7 @@
 name: release
 on:
   push:
-    tags: ["v*"]
+    tags: ["v*", "[0-9]*"]   # v0.0.1 and 0.0.1 both publish; the version is the tag minus a leading v
 
 jobs:
   publish:
