@@ -23,7 +23,7 @@ kubectl -n hermes port-forward svc/hermes-operator 8080:80   # UI: http://localh
 # Chart.yaml
 dependencies:
   - name: hermes-operator
-    version: 0.0.1
+    version: 0.0.2
     repository: oci://ghcr.io/dbslone/charts
 ```
 ```yaml
@@ -109,6 +109,7 @@ Design decisions, test strategy and review gates live in [`plans/`](plans/). Eve
 | [0003 – Test coverage map](plans/0003-test-coverage-map.md) | Every promise mapped to the tests that protect it; exclusions and gaps |
 | [0004 – CI on every commit](plans/0004-ci-on-every-commit.md) | Why CI runs on every push for now, and the one-line switch to PR-only later |
 | [0005 – First release 0.0.1](plans/0005-first-release-0-0-1.md) | How releases are cut (tag → image + chart), versions, and what to check after publishing |
+| [0006 – Release 0.0.2](plans/0006-release-0-0-2.md) | Why 0.0.1 was never published, faster multi-arch build, image source label |
 | [Template](plans/TEMPLATE.md) | Copy to `plans/NNNN-slug.md` for your PR |
 
 ## License
