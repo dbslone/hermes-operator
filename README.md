@@ -88,13 +88,26 @@ Hermes recommends ≥ 2 GB if you use browser tools.
 
 ## Development
 
-No local Go needed:
+No local Go needed; everything runs in Docker. Run `make help` for all targets.
 
 ```sh
-make build        # compile in Docker
-make chart-lint
-make image IMG=ghcr.io/you/hermes-operator:dev
+make check        # build + unit tests (>= 90% coverage gate) + chart lint/tests + plans check
+make e2e IMG=hermes-operator:e2e   # real install on a THROWAWAY cluster (k3s/kind) via $KUBECONFIG
+make image IMG=ghcr.io/dbslone/hermes-operator:dev
 ```
+
+Tests come in three layers (unit, chart, end-to-end); see [Test coverage map](plans/0003-test-coverage-map.md). Contribution rules, including **"every PR adds a plan"**, are in [CLAUDE.md](CLAUDE.md).
+
+## Plans
+
+Design decisions, test strategy and review gates live in [`plans/`](plans/). Every PR adds a new plan (copy the template), and every plan must be linked here (CI checks this).
+
+| Plan | What it covers |
+| --- | --- |
+| [0001 – How we got here](plans/0001-how-we-got-here.md) | Requirements, architecture diagrams, every technology choice and why, build history, testing, bugs found, known gaps |
+| [0002 – PR review and test gates](plans/0002-pr-review-and-test-gates.md) | Review checklist, which tests each kind of change needs, CI gates, 90% coverage rule |
+| [0003 – Test coverage map](plans/0003-test-coverage-map.md) | Every promise mapped to the tests that protect it; exclusions and gaps |
+| [Template](plans/TEMPLATE.md) | Copy to `plans/NNNN-slug.md` for your PR |
 
 ## License
 

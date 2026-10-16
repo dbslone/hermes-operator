@@ -18,6 +18,20 @@ import (
 var uiHTML []byte
 
 func Run(ctx context.Context, addr string, svc *agent.Service) error {
+	srv := &http.Server{Addr: addr, Handler: buildMux(svc), ReadHeaderTimeout: 10 * time.Second}
+	go func() {
+		<-ctx.Done()
+		sctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = srv.Shutdown(sctx)
+	}()
+	if err := srv.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
+		return err
+	}
+	return nil
+}
+
+func buildMux(svc *agent.Service) *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -42,17 +56,7 @@ func Run(ctx context.Context, addr string, svc *agent.Service) error {
 	mux.Handle("/mcp", mcpHandler(svc))
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte("ok")) })
 
-	srv := &http.Server{Addr: addr, Handler: mux, ReadHeaderTimeout: 10 * time.Second}
-	go func() {
-		<-ctx.Done()
-		sctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		_ = srv.Shutdown(sctx)
-	}()
-	if err := srv.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
-		return err
-	}
-	return nil
+	return mux
 }
 
 func respond(w http.ResponseWriter, v any, err error) {

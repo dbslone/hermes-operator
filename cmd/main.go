@@ -13,7 +13,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
-	"sigs.k8s.io/yaml"
 
 	"hermes-operator/internal/agent"
 	"hermes-operator/internal/server"
@@ -36,16 +35,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	defaults := agent.Defaults{Image: "nousresearch/hermes-agent:stable"}
-	if defaultsFile != "" {
-		b, err := os.ReadFile(defaultsFile)
-		if err == nil {
-			err = yaml.Unmarshal(b, &defaults)
-		}
-		if err != nil {
-			log.Error(err, "reading defaults file")
-			os.Exit(1)
-		}
+	defaults, err := agent.LoadDefaults(defaultsFile)
+	if err != nil {
+		log.Error(err, "reading defaults file")
+		os.Exit(1)
 	}
 
 	scheme := runtime.NewScheme()
@@ -71,7 +64,7 @@ func main() {
 	_ = mgr.AddHealthzCheck("healthz", healthz.Ping)
 	_ = mgr.AddReadyzCheck("readyz", healthz.Ping)
 
-	svc := &agent.Service{Client: mgr.GetClient(), Namespace: agentNS}
+	svc := &agent.Service{Client: mgr.GetClient(), Namespace: agentNS, ListNamespace: watchNS}
 	_ = mgr.Add(manager.RunnableFunc(func(ctx context.Context) error {
 		return server.Run(ctx, httpAddr, svc)
 	}))

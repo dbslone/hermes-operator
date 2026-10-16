@@ -21,6 +21,9 @@ type Service struct {
 	Client client.Client
 	// Namespace is where new agents are created.
 	Namespace string
+	// ListNamespace limits List to one namespace ("" = all). It must match
+	// what the operator's RBAC allows: a namespaced Role cannot list cluster-wide.
+	ListNamespace string
 }
 
 type CreateRequest struct {
@@ -66,7 +69,7 @@ func summarize(u *unstructured.Unstructured) Summary {
 
 func (s *Service) List(ctx context.Context) ([]Summary, error) {
 	l := NewList()
-	if err := s.Client.List(ctx, l); err != nil {
+	if err := s.Client.List(ctx, l, client.InNamespace(s.ListNamespace)); err != nil {
 		return nil, err
 	}
 	out := make([]Summary, 0, len(l.Items))

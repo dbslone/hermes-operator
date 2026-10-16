@@ -6,10 +6,13 @@
 package agent
 
 import (
+	"os"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"sigs.k8s.io/yaml"
 )
 
 const (
@@ -64,6 +67,26 @@ type Defaults struct {
 	Resources     corev1.ResourceRequirements `json:"resources,omitempty"`
 	Storage       Storage                     `json:"storage,omitempty"`
 	EnvFromSecret string                      `json:"envFromSecret,omitempty"`
+}
+
+// DefaultImage is used when neither the agent nor the defaults file sets one.
+const DefaultImage = "nousresearch/hermes-agent:stable"
+
+// LoadDefaults reads operator-wide defaults from a YAML file. An empty path
+// returns built-in defaults.
+func LoadDefaults(path string) (Defaults, error) {
+	d := Defaults{Image: DefaultImage}
+	if path == "" {
+		return d, nil
+	}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return d, err
+	}
+	if err := yaml.Unmarshal(b, &d); err != nil {
+		return d, err
+	}
+	return d, nil
 }
 
 func New() *unstructured.Unstructured {

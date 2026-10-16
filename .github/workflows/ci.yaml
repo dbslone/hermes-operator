@@ -1,0 +1,47 @@
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with: { go-version-file: go.mod }
+      - run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
+      - run: go vet ./... && go build ./...
+      - name: unit tests + 90% coverage gate
+        run: test/coverage.sh
+      - uses: actions/upload-artifact@v4
+        with: { name: coverage, path: coverage.out }
+
+  chart:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+      - run: make chart-lint chart-test
+
+  plans:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: plans are linked and named correctly
+        run: test/plans.sh
+      - name: every PR adds a plan
+        if: github.event_name == 'pull_request'
+        run: BASE_REF=origin/${{ github.base_ref }} test/plans.sh
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+      - uses: helm/kind-action@v1
+      - run: docker build -t hermes-operator:e2e .
+      - run: kind load docker-image hermes-operator:e2e
+      - run: IMG=hermes-operator:e2e test/e2e.sh

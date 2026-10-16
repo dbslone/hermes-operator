@@ -147,6 +147,11 @@ func (r *Reconciler) mutateStatefulSet(sts *appsv1.StatefulSet, spec Spec, lbl m
 	if storage.Size == "" {
 		storage.Size = "2Gi"
 	}
+	// "" means "cluster default class" to users, but an explicit empty
+	// storageClassName on a PVC disables dynamic provisioning.
+	if storage.StorageClassName != nil && *storage.StorageClassName == "" {
+		storage.StorageClassName = nil
+	}
 
 	env := []corev1.EnvVar{
 		{Name: "API_SERVER_ENABLED", Value: "true"},
