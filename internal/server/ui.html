@@ -46,14 +46,20 @@
     <h2 style="margin:0 0 4px">New agent</h2>
     <label>Name</label><input id="name" required pattern="[a-z][-a-z0-9]{0,38}[a-z0-9]?" placeholder="research-bot">
     <div class="row">
-      <div><label>Provider</label><input id="provider" placeholder="openrouter"></div>
-      <div><label>Model</label><input id="model" placeholder="nousresearch/hermes-4-405b"></div>
+      <div><label>Provider</label>
+        <select id="provider"><option value="">(Hermes default)</option></select>
+        <input id="providerCustom" placeholder="provider id" hidden></div>
+      <div><label>Model</label>
+        <input id="model" list="modelList" autocomplete="off" placeholder="pick or type a model id">
+        <datalist id="modelList"></datalist></div>
     </div>
+    <div class="mut" id="modelNote"></div>
     <label>Soul / instructions (optional)</label><textarea id="soul" placeholder="You are a helpful research assistant…"></textarea>
     <details>
       <summary>API keys &amp; advanced</summary>
       <label>Environment variables, one per line as KEY=value (leave empty to use shared operator keys)</label>
       <textarea id="env" placeholder="OPENROUTER_API_KEY=sk-..." spellcheck="false"></textarea>
+      <div class="mut">The key for the chosen provider is also used once to list its models; it is not stored by that lookup.</div>
       <label>Base URL (custom OpenAI-compatible endpoint)</label><input id="baseurl">
       <div class="row">
         <div><label>CPU request</label><input id="cpuReq" placeholder="default"></div>
@@ -102,19 +108,52 @@ async function load() {
   } catch (e) { $('list').innerHTML = `<div class="empty" style="grid-column:1/-1">${e.message}</div>`; }
 }
 
-$('new').onclick = () => { $('err').textContent = ''; $('dlg').showModal(); };
-$('cancel').onclick = () => $('dlg').close();
-$('form').onsubmit = async ev => {
-  ev.preventDefault();
+let providers = [];
+const providerId = () => $('provider').value === '__custom' ? $('providerCustom').value.trim() : $('provider').value;
+const envMap = () => {
   const env = {};
   for (const line of $('env').value.split('\n')) {
     const i = line.indexOf('='); if (i > 0) env[line.slice(0, i).trim()] = line.slice(i + 1).trim();
   }
+  return env;
+};
+async function loadProviders() {
+  try { providers = await api('api/providers'); } catch (e) { providers = []; }
+  const sel = $('provider');
+  sel.innerHTML = '<option value="">(Hermes default)</option>';
+  for (const p of providers) sel.append(new Option(p.label, p.id));
+  sel.append(new Option('Other…', '__custom'));
+}
+// Fill the model dropdown from the provider's live model list. Never blocks creating an agent:
+// on any failure the field stays a plain text box.
+let modelSeq = 0;
+async function loadModels() {
+  const seq = ++modelSeq, id = providerId(), note = $('modelNote');
+  $('modelList').innerHTML = ''; note.textContent = '';
+  const p = providers.find(x => x.id === id);
+  if (!p) return;
+  try {
+    const r = await api('api/models', {method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({provider: id, apiKey: envMap()[p.keyEnv] || ''})});
+    if (seq !== modelSeq) return;
+    for (const m of r.models) $('modelList').append(new Option(m));
+    note.textContent = `${r.models.length} models from ${p.label}. You can also type any model id.`;
+  } catch (e) {
+    if (seq === modelSeq) note.textContent = `${e.message}. Type a model id manually.`;
+  }
+}
+$('provider').onchange = () => { $('providerCustom').hidden = $('provider').value !== '__custom'; loadModels(); };
+$('env').onchange = loadModels;
+$('new').onclick = async () => { $('err').textContent = ''; $('dlg').showModal(); await loadProviders(); loadModels(); };
+$('cancel').onclick = () => $('dlg').close();
+$('form').onsubmit = async ev => {
+  ev.preventDefault();
+  const env = envMap();
   const pick = (c, m) => { const o = {}; if ($(c).value) o.cpu = $(c).value; if ($(m).value) o.memory = $(m).value; return o; };
   const requests = pick('cpuReq', 'memReq'), limits = pick('cpuLim', 'memLim');
   const body = { name: $('name').value, soul: $('soul').value, env, dashboard: $('dash').checked,
     storageSize: $('storage').value,
-    model: { provider: $('provider').value, name: $('model').value, baseURL: $('baseurl').value } };
+    model: { provider: providerId(), name: $('model').value, baseURL: $('baseurl').value } };
   if (Object.keys(requests).length || Object.keys(limits).length) body.resources = { requests, limits };
   try {
     await api('api/agents', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});

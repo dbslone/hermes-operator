@@ -32,6 +32,18 @@ agentDefaults:
   # in the UI without pasting keys each time.
   envFromSecret: ""
 
+# Model providers shown in the UI dropdown. The built-in list (OpenRouter, Anthropic,
+# OpenAI, DeepSeek, xAI, Fireworks) is always present; entries here add providers or
+# replace a built-in one with the same id. The model list is fetched live from
+# `modelsURL` (an OpenAI-style `{"data":[{"id":...}]}` response), so new models need no release.
+# auth: none | bearer | anthropic.  id must be a provider id Hermes accepts.
+providers: []
+#  - id: nvidia
+#    label: NVIDIA NIM
+#    modelsURL: https://integrate.api.nvidia.com/v1/models
+#    auth: bearer
+#    keyEnv: NVIDIA_API_KEY
+
 # Resources for the operator pod itself.
 resources:
   requests:

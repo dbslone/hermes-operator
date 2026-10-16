@@ -12,13 +12,15 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"hermes-operator/internal/agent"
+	"hermes-operator/internal/models"
 )
 
 //go:embed ui.html
 var uiHTML []byte
 
-func Run(ctx context.Context, addr string, svc *agent.Service) error {
-	srv := &http.Server{Addr: addr, Handler: buildMux(svc), ReadHeaderTimeout: 10 * time.Second}
+// Run serves the UI, REST API and MCP endpoint. cat may be nil (no provider dropdown data).
+func Run(ctx context.Context, addr string, svc *agent.Service, cat *models.Catalog) error {
+	srv := &http.Server{Addr: addr, Handler: buildMux(svc, cat), ReadHeaderTimeout: 10 * time.Second}
 	go func() {
 		<-ctx.Done()
 		sctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -31,7 +33,10 @@ func Run(ctx context.Context, addr string, svc *agent.Service) error {
 	return nil
 }
 
-func buildMux(svc *agent.Service) *http.ServeMux {
+func buildMux(svc *agent.Service, cat *models.Catalog) *http.ServeMux {
+	if cat == nil {
+		cat = models.NewCatalog(nil)
+	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -52,6 +57,22 @@ func buildMux(svc *agent.Service) *http.ServeMux {
 	})
 	mux.HandleFunc("DELETE /api/agents/{name}", func(w http.ResponseWriter, r *http.Request) {
 		respond(w, map[string]bool{"deleted": true}, svc.Delete(r.Context(), r.PathValue("name")))
+	})
+	mux.HandleFunc("GET /api/providers", func(w http.ResponseWriter, _ *http.Request) {
+		respond(w, cat.Public(), nil)
+	})
+	// POST so the API key (needed by some providers to list models) never lands in a URL or access log.
+	mux.HandleFunc("POST /api/models", func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			Provider string `json:"provider"`
+			APIKey   string `json:"apiKey"`
+		}
+		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<16)).Decode(&req); err != nil {
+			respond(w, nil, err)
+			return
+		}
+		list, err := cat.Models(r.Context(), req.Provider, req.APIKey)
+		respond(w, map[string]any{"models": list}, err)
 	})
 	mux.Handle("/mcp", mcpHandler(svc))
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte("ok")) })

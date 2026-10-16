@@ -15,17 +15,19 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	"hermes-operator/internal/agent"
+	"hermes-operator/internal/models"
 	"hermes-operator/internal/server"
 )
 
 func main() {
-	var httpAddr, metricsAddr, probeAddr, watchNS, agentNS, defaultsFile string
+	var httpAddr, metricsAddr, probeAddr, watchNS, agentNS, defaultsFile, providersFile string
 	flag.StringVar(&httpAddr, "http-addr", ":8090", "address for the UI, REST API and MCP endpoint")
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "metrics address")
 	flag.StringVar(&probeAddr, "probe-addr", ":8081", "health probe address")
 	flag.StringVar(&watchNS, "watch-namespace", "", "namespace to watch; empty watches all namespaces")
 	flag.StringVar(&agentNS, "agent-namespace", "", "namespace where the UI/MCP create agents (required)")
 	flag.StringVar(&defaultsFile, "defaults-file", "", "YAML file with agent defaults (image, resources, storage)")
+	flag.StringVar(&providersFile, "providers-file", "", "YAML list of model providers added to / overriding the built-in ones")
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New())
@@ -38,6 +40,12 @@ func main() {
 	defaults, err := agent.LoadDefaults(defaultsFile)
 	if err != nil {
 		log.Error(err, "reading defaults file")
+		os.Exit(1)
+	}
+
+	providers, err := models.LoadProviders(providersFile)
+	if err != nil {
+		log.Error(err, "reading providers file")
 		os.Exit(1)
 	}
 
@@ -66,7 +74,7 @@ func main() {
 
 	svc := &agent.Service{Client: mgr.GetClient(), Namespace: agentNS, ListNamespace: watchNS}
 	_ = mgr.Add(manager.RunnableFunc(func(ctx context.Context) error {
-		return server.Run(ctx, httpAddr, svc)
+		return server.Run(ctx, httpAddr, svc, models.NewCatalog(providers))
 	}))
 
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {

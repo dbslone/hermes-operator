@@ -39,6 +39,12 @@ has   "override requests"  'cpu: "4"' --set-string agentDefaults.resources.reque
 has   "override limits"    'cpu: "8"' --set-string agentDefaults.resources.limits.cpu=8
 has   "shared key secret"  'envFromSecret: my-keys' --set agentDefaults.envFromSecret=my-keys
 
+# model providers for the UI dropdown (built-ins live in the binary; values add/override)
+hasnt "providers: none by default"        'providers.yaml'
+has   "providers: file written when set"  'providers.yaml: \|' --set 'providers[0].id=nvidia' --set 'providers[0].modelsURL=https://x/v1/models'
+has   "providers: flag passed when set"   '--providers-file=/etc/hermes-operator/providers.yaml' --set 'providers[0].id=nvidia' --set 'providers[0].modelsURL=https://x/v1/models'
+has   "providers: entry rendered"         'modelsURL: https://x/v1/models' --set 'providers[0].id=nvidia' --set 'providers[0].modelsURL=https://x/v1/models'
+
 # declarative agents
 has   "agents: renders HermesAgent"   '^kind: HermesAgent$' --set agents.bot.model.provider=openrouter
 has   "agents: spec passthrough"      'provider: openrouter' --set agents.bot.model.provider=openrouter

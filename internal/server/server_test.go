@@ -23,7 +23,7 @@ func newServer(t *testing.T) (*httptest.Server, *agent.Service) {
 		Client:    fake.NewClientBuilder().WithScheme(s).WithStatusSubresource(agent.New()).Build(),
 		Namespace: "ns",
 	}
-	mux := buildMux(svc)
+	mux := buildMux(svc, nil)
 	ts := httptest.NewServer(mux)
 	t.Cleanup(ts.Close)
 	return ts, svc

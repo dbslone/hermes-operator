@@ -1,0 +1,33 @@
+# Built-in providers. Ids are the values Hermes accepts in config.yaml `model.provider`.
+# Add or override entries with --providers-file (chart value `providers`); no release needed.
+# auth: bearer (Authorization: Bearer <key>), anthropic (x-api-key + anthropic-version) or none.
+- id: openrouter
+  label: OpenRouter
+  modelsURL: https://openrouter.ai/api/v1/models
+  auth: none
+  keyEnv: OPENROUTER_API_KEY
+- id: anthropic
+  label: Anthropic
+  modelsURL: https://api.anthropic.com/v1/models?limit=1000
+  auth: anthropic
+  keyEnv: ANTHROPIC_API_KEY
+- id: openai-api
+  label: OpenAI
+  modelsURL: https://api.openai.com/v1/models
+  auth: bearer
+  keyEnv: OPENAI_API_KEY
+- id: deepseek
+  label: DeepSeek
+  modelsURL: https://api.deepseek.com/models
+  auth: bearer
+  keyEnv: DEEPSEEK_API_KEY
+- id: xai
+  label: xAI
+  modelsURL: https://api.x.ai/v1/models
+  auth: bearer
+  keyEnv: XAI_API_KEY
+- id: fireworks
+  label: Fireworks
+  modelsURL: https://api.fireworks.ai/inference/v1/models
+  auth: bearer
+  keyEnv: FIREWORKS_API_KEY

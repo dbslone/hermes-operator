@@ -2,8 +2,10 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -20,6 +22,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	"hermes-operator/internal/agent"
+	"hermes-operator/internal/models"
 )
 
 func freeAddr(t *testing.T) string {
@@ -42,7 +45,7 @@ func TestRunServesAndShutsDownOnCancel(t *testing.T) {
 	addr := freeAddr(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
-	go func() { done <- Run(ctx, addr, newSvc()) }()
+	go func() { done <- Run(ctx, addr, newSvc(), nil) }()
 
 	var resp *http.Response
 	var err error
@@ -74,7 +77,7 @@ func TestRunReturnsListenError(t *testing.T) {
 	defer l.Close()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	if err := Run(ctx, l.Addr().String(), newSvc()); err == nil {
+	if err := Run(ctx, l.Addr().String(), newSvc(), nil); err == nil {
 		t.Error("expected an error when the port is already in use")
 	}
 }
@@ -109,7 +112,7 @@ func TestRESTListErrorIs500(t *testing.T) {
 		List: func(context.Context, client.WithWatch, client.ObjectList, ...client.ListOption) error {
 			return apierrors.NewForbidden(schema.GroupResource{Resource: "hermesagents"}, "", errors.New("rbac"))
 		}}).Build()}
-	ts := httptest.NewServer(buildMux(svc))
+	ts := httptest.NewServer(buildMux(svc, nil))
 	defer ts.Close()
 	resp, _ := http.Get(ts.URL + "/api/agents")
 	if resp.StatusCode != 500 {
@@ -118,7 +121,7 @@ func TestRESTListErrorIs500(t *testing.T) {
 }
 
 func TestMCPMalformedRequests(t *testing.T) {
-	ts := httptest.NewServer(buildMux(newSvc()))
+	ts := httptest.NewServer(buildMux(newSvc(), nil))
 	defer ts.Close()
 
 	post := func(body string) int {
@@ -145,10 +148,76 @@ func TestMCPMalformedRequests(t *testing.T) {
 }
 
 func TestMCPCreateWithAllOptions(t *testing.T) {
-	ts := httptest.NewServer(buildMux(newSvc()))
+	ts := httptest.NewServer(buildMux(newSvc(), nil))
 	defer ts.Close()
 	args := fmt.Sprintf(`{"name":"create_agent","arguments":{"name":"full","provider":"custom","model":"m","base_url":"http://x/v1","soul":"s","dashboard":true,"env":{"A":"b"}}}`)
 	if text, isErr := toolText(t, rpc(t, ts.URL, "tools/call", args)); isErr || !strings.Contains(text, `"dashboard": true`) {
 		t.Errorf("create_agent = %s (err=%v)", text, isErr)
+	}
+}
+
+func TestProvidersAndModelsEndpoints(t *testing.T) {
+	up := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer good" {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		_, _ = w.Write([]byte(`{"data":[{"id":"m1"}]}`))
+	}))
+	defer up.Close()
+	cat := models.NewCatalog([]models.Provider{{ID: "p", Label: "P", ModelsURL: up.URL, Auth: "bearer", KeyEnv: "P_KEY"}})
+	ts := httptest.NewServer(buildMux(newSvc(), cat))
+	defer ts.Close()
+
+	resp, err := http.Get(ts.URL + "/api/providers")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var ps []map[string]any
+	_ = json.NewDecoder(resp.Body).Decode(&ps)
+	resp.Body.Close()
+	if len(ps) != 1 || ps[0]["id"] != "p" || ps[0]["keyEnv"] != "P_KEY" {
+		t.Fatalf("providers: %v", ps)
+	}
+	for _, k := range []string{"modelsURL", "ModelsURL"} {
+		if _, leaked := ps[0][k]; leaked {
+			t.Error("modelsURL must not be exposed to the UI")
+		}
+	}
+	if ps[0]["needsKey"] != true {
+		t.Errorf("needsKey: %v", ps[0])
+	}
+
+	post := func(body string) (int, map[string]any) {
+		r, err := http.Post(ts.URL+"/api/models", "application/json", strings.NewReader(body))
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer r.Body.Close()
+		var out map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&out)
+		return r.StatusCode, out
+	}
+	if code, out := post(`{"provider":"p","apiKey":"good"}`); code != 200 || out["models"].([]any)[0] != "m1" {
+		t.Errorf("models: %d %v", code, out)
+	}
+	if code, _ := post(`{"provider":"p","apiKey":"bad"}`); code != 400 {
+		t.Errorf("upstream failure should be 400, got %d", code)
+	}
+	if code, _ := post(`{"provider":"p"}`); code != 400 {
+		t.Errorf("missing key should be 400, got %d", code)
+	}
+	if code, _ := post(`{`); code != 400 {
+		t.Errorf("bad body should be 400, got %d", code)
+	}
+
+	// nil catalog: endpoints still work, with no providers.
+	ts2 := httptest.NewServer(buildMux(newSvc(), nil))
+	defer ts2.Close()
+	r2, _ := http.Get(ts2.URL + "/api/providers")
+	b, _ := io.ReadAll(r2.Body)
+	r2.Body.Close()
+	if strings.TrimSpace(string(b)) != "[]" {
+		t.Errorf("nil catalog providers: %s", b)
 	}
 }

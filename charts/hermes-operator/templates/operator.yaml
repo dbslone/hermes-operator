@@ -15,6 +15,10 @@ metadata:
 data:
   defaults.yaml: |
     {{- toYaml .Values.agentDefaults | nindent 4 }}
+  {{- with .Values.providers }}
+  providers.yaml: |
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -30,7 +34,7 @@ spec:
     metadata:
       labels: {{- include "hermes-operator.selector" . | nindent 8 }}
       annotations:
-        checksum/defaults: {{ toYaml .Values.agentDefaults | sha256sum }}
+        checksum/defaults: {{ toYaml (list .Values.agentDefaults .Values.providers) | sha256sum }}
     spec:
       serviceAccountName: {{ include "hermes-operator.serviceAccountName" . }}
       securityContext: { runAsNonRoot: true, seccompProfile: { type: RuntimeDefault } }
@@ -42,6 +46,9 @@ spec:
             - --watch-namespace={{ include "hermes-operator.watchNamespace" . }}
             - --agent-namespace={{ include "hermes-operator.agentNamespace" . }}
             - --defaults-file=/etc/hermes-operator/defaults.yaml
+            {{- if .Values.providers }}
+            - --providers-file=/etc/hermes-operator/providers.yaml
+            {{- end }}
           ports:
             - { name: http, containerPort: 8090 }
           livenessProbe: { httpGet: { path: /healthz, port: 8081 } }
