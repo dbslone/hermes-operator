@@ -11,11 +11,15 @@ Spin up [Hermes agents](https://github.com/NousResearch/hermes-agent) on Kuberne
 
 ## Install
 
+**Requirements:** Kubernetes 1.25+ and Helm 3.8+ (OCI charts). No database, ingress controller or cert-manager is needed. The chart and the image are public: `oci://ghcr.io/dbslone/charts/hermes-operator` and `ghcr.io/dbslone/hermes-operator`, both tagged with the release version.
+
 ```sh
 helm install hermes-operator oci://ghcr.io/dbslone/charts/hermes-operator \
-  -n hermes --create-namespace
+  --version 0.0.2 -n hermes --create-namespace
 kubectl -n hermes port-forward svc/hermes-operator 8080:80   # UI: http://localhost:8080
 ```
+
+By default the operator watches, and creates agents in, **the namespace it is installed into**. The commands in this README use the release name `hermes-operator`; with a different release name the Service is called `<release>-hermes-operator`.
 
 ### Add to an existing chart
 
@@ -37,8 +41,46 @@ hermes-operator:
       soul: You are a research assistant.
 ```
 
+Run `helm dependency update` after editing `Chart.yaml`. The operator pod runs in your release's namespace; to keep agents elsewhere, set where they live (the namespace **must already exist**, the chart does not create it):
+
+```yaml
+hermes-operator:
+  watchNamespace: agents   # where the operator watches and has RBAC (Role in this namespace)
+  agentNamespace: agents   # where UI/MCP/Helm-declared agents are created
+```
+
+If the namespace uses Istio, label it `istio-injection=enabled` before creating agents so they get a sidecar.
+
+### Install with Argo CD
+
+The chart ships a `CustomResourceDefinition`. Argo CD rejects a sync that contains a kind the Application's project does not allow (`CustomResourceDefinition is not permitted in project ...`) and applies nothing. Add it to the project's cluster-scoped allow-list first:
+
+```yaml
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+spec:
+  clusterResourceWhitelist:
+    - { group: apiextensions.k8s.io, kind: CustomResourceDefinition }
+```
+
+The `default` project already allows everything. Then point an Application at the OCI chart (`repoURL: ghcr.io/dbslone/charts`, `chart: hermes-operator`, `targetRevision: 0.0.2`, source type OCI) or add it as a dependency as above. With Helm directly there is nothing to configure: it installs the CRD on first install.
+
 > Helm installs CRDs only on first install and never upgrades them. To upgrade the CRD run
-> `kubectl apply -f charts/hermes-operator/crds/`.
+> `kubectl apply -f charts/hermes-operator/crds/`. Uninstalling the chart leaves the CRD (and so your agents and their data) in place.
+
+### Configuration
+
+| Value | Default | Meaning |
+| --- | --- | --- |
+| `watchNamespace` | `""` | `""` release namespace (Role), `"*"` all namespaces (ClusterRole), or a namespace name |
+| `agentNamespace` | `""` | Where UI/MCP/`agents:` agents are created. Defaults to the watched namespace |
+| `agentDefaults.image` | `nousresearch/hermes-agent:stable` | Agent image |
+| `agentDefaults.resources` | 500m / 1Gi request, 4Gi memory limit | Per-agent resources |
+| `agentDefaults.storage.size` | `2Gi` | PVC per agent (`storageClassName: ""` = cluster default) |
+| `agentDefaults.envFromSecret` | `""` | Secret whose keys become env vars (provider API keys) in every agent |
+| `agents` | `{}` | Declare `HermesAgent`s in values |
+| `image.repository` / `image.tag` | ghcr image / chart `appVersion` | Operator image |
+| `service`, `ingress` | `ClusterIP`, off | **No authentication**; see the warning above |
 
 ## Creating agents
 
@@ -48,7 +90,7 @@ hermes-operator:
 | kubectl | `kubectl apply -f examples/agent.yaml` |
 | Helm values | `agents:` map (above) |
 | REST | `curl -XPOST $URL/api/agents -d '{"name":"bot","model":{"provider":"openrouter","name":"..."},"env":{"OPENROUTER_API_KEY":"..."}}'` |
-| MCP | point any MCP client at `http://hermes-operator.<ns>.svc/mcp` |
+| MCP | point any MCP client at `http://<release>-hermes-operator.<operator-ns>.svc/mcp` (`hermes-operator` when the release is named that) |
 
 **MCP tools:** `list_agents`, `get_agent`, `create_agent`, `delete_agent` (stateless Streamable HTTP, JSON responses).
 Claude Code: `claude mcp add --transport http hermes http://hermes-operator.hermes.svc/mcp`.
@@ -110,6 +152,7 @@ Design decisions, test strategy and review gates live in [`plans/`](plans/). Eve
 | [0004 – CI on every commit](plans/0004-ci-on-every-commit.md) | Why CI runs on every push for now, and the one-line switch to PR-only later |
 | [0005 – First release 0.0.1](plans/0005-first-release-0-0-1.md) | How releases are cut (tag → image + chart), versions, and what to check after publishing |
 | [0006 – Release 0.0.2](plans/0006-release-0-0-2.md) | Why 0.0.1 was never published, faster multi-arch build, image source label |
+| [0007 – README install guide](plans/0007-readme-install-guide.md) | Install requirements, subchart/namespace split, Argo CD CRD allow-list, configuration table |
 | [Template](plans/TEMPLATE.md) | Copy to `plans/NNNN-slug.md` for your PR |
 
 ## License
