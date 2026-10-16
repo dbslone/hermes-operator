@@ -11,7 +11,7 @@ Spin up [Hermes agents](https://github.com/NousResearch/hermes-agent) on Kuberne
 
 ## Install
 
-**Requirements:** Kubernetes 1.25+ and Helm 3.8+ (OCI charts). No database, ingress controller or cert-manager is needed. The chart and the image are public: `oci://ghcr.io/dbslone/charts/hermes-operator` and `ghcr.io/dbslone/hermes-operator`, both tagged with the release version.
+**Requirements:** a Kubernetes cluster with a default StorageClass (each agent gets a PVC), and Helm 3.8+ (OCI charts). No database, ingress controller or cert-manager is needed. The chart and the image are public: `oci://ghcr.io/dbslone/charts/hermes-operator` and `ghcr.io/dbslone/hermes-operator`, both tagged with the release version.
 
 ```sh
 helm install hermes-operator oci://ghcr.io/dbslone/charts/hermes-operator \
