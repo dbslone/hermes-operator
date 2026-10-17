@@ -15,7 +15,7 @@ Spin up [Hermes agents](https://github.com/NousResearch/hermes-agent) on Kuberne
 
 ```sh
 helm install hermes-operator oci://ghcr.io/dbslone/charts/hermes-operator \
-  --version 0.0.3 -n hermes --create-namespace
+  --version 0.0.4 -n hermes --create-namespace
 kubectl -n hermes port-forward svc/hermes-operator 8080:80   # UI: http://localhost:8080
 ```
 
@@ -27,7 +27,7 @@ By default the operator watches, and creates agents in, **the namespace it is in
 # Chart.yaml
 dependencies:
   - name: hermes-operator
-    version: 0.0.3
+    version: 0.0.4
     repository: oci://ghcr.io/dbslone/charts
 ```
 ```yaml
@@ -63,7 +63,7 @@ spec:
     - { group: apiextensions.k8s.io, kind: CustomResourceDefinition }
 ```
 
-The `default` project already allows everything. Then point an Application at the OCI chart (`repoURL: ghcr.io/dbslone/charts`, `chart: hermes-operator`, `targetRevision: 0.0.3`, source type OCI) or add it as a dependency as above. With Helm directly there is nothing to configure: it installs the CRD on first install.
+The `default` project already allows everything. Then point an Application at the OCI chart (`repoURL: ghcr.io/dbslone/charts`, `chart: hermes-operator`, `targetRevision: 0.0.4`, source type OCI) or add it as a dependency as above. With Helm directly there is nothing to configure: it installs the CRD on first install.
 
 > Helm installs CRDs only on first install and never upgrades them. To upgrade the CRD run
 > `kubectl apply -f charts/hermes-operator/crds/`. Uninstalling the chart leaves the CRD (and so your agents and their data) in place.
@@ -85,7 +85,7 @@ The `default` project already allows everything. Then point an Application at th
 
 ## Creating agents
 
-In the UI, **Provider** is a dropdown and **Model** is a searchable list filled live from the provider's own API (cached ten minutes), so newly released models appear without upgrading the operator. Both fall back to free text (`Other…` / just type), and the list is only a convenience: any provider id and model id Hermes accepts still works. OpenRouter's list is public; the others need that provider's key, which the UI takes from the `KEY=value` lines under *API keys* (used for the lookup only, never stored). Built in: OpenRouter, Anthropic, OpenAI (`openai-api`), DeepSeek, xAI, Fireworks. Add more, or change an endpoint, with chart values:
+In the UI, **Provider** is a dropdown and **Model** is a dropdown filled live from the provider's own API (cached ten minutes), so newly released models appear without upgrading the operator. Both fall back to free text (`Other…` at the end of each list, or just type when no list loaded), and the list is only a convenience: any provider id and model id Hermes accepts still works. OpenRouter's list is public; the others need that provider's key, which the UI takes from the `KEY=value` lines under *API keys* (used for the lookup only, never stored). Built in: OpenRouter, Anthropic, OpenAI (`openai-api`), DeepSeek, xAI, Fireworks. Add more, or change an endpoint, with chart values:
 
 ```yaml
 providers:
@@ -168,6 +168,7 @@ Design decisions, test strategy and review gates live in [`plans/`](plans/). Eve
 | [0006 – Release 0.0.2](plans/0006-release-0-0-2.md) | Why 0.0.1 was never published, faster multi-arch build, image source label |
 | [0007 – README install guide](plans/0007-readme-install-guide.md) | Install requirements, subchart/namespace split, Argo CD CRD allow-list, configuration table |
 | [0008 – Dynamic provider and model dropdowns](plans/0008-dynamic-provider-and-model-dropdowns.md) | Live model lists, provider data, key handling, SSRF decision |
+| [0009 – Model field is a real dropdown](plans/0009-model-select-dropdown.md) | Replaces the datalist with a select once models load; text fallback |
 | [Template](plans/TEMPLATE.md) | Copy to `plans/NNNN-slug.md` for your PR |
 
 ## License

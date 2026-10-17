@@ -50,8 +50,8 @@
         <select id="provider"><option value="">(Hermes default)</option></select>
         <input id="providerCustom" placeholder="provider id" hidden></div>
       <div><label>Model</label>
-        <input id="model" list="modelList" autocomplete="off" placeholder="pick or type a model id">
-        <datalist id="modelList"></datalist></div>
+        <select id="modelSel" hidden></select>
+        <input id="model" autocomplete="off" placeholder="model id (choose a provider to pick from a list)"></div>
     </div>
     <div class="mut" id="modelNote"></div>
     <label>Soul / instructions (optional)</label><textarea id="soul" placeholder="You are a helpful research assistant…"></textarea>
@@ -124,20 +124,34 @@ async function loadProviders() {
   for (const p of providers) sel.append(new Option(p.label, p.id));
   sel.append(new Option('Other…', '__custom'));
 }
+// With a loaded list the model is a <select> (last option "Other…" reveals the text box);
+// otherwise only the text box shows.
+const modelName = () => !$('modelSel').hidden && $('modelSel').value !== '__custom' ? $('modelSel').value : $('model').value.trim();
+function showModelSelect(models) {
+  const sel = $('modelSel');
+  sel.innerHTML = '';
+  sel.append(new Option('(Hermes default)', ''));
+  for (const m of models) sel.append(new Option(m, m));
+  sel.append(new Option('Other…', '__custom'));
+  sel.hidden = false; $('model').hidden = true; $('model').value = '';
+}
+function showModelText() { $('modelSel').hidden = true; $('modelSel').innerHTML = ''; $('model').hidden = false; }
+$('modelSel').onchange = () => { $('model').hidden = $('modelSel').value !== '__custom'; };
 // Fill the model dropdown from the provider's live model list. Never blocks creating an agent:
 // on any failure the field stays a plain text box.
 let modelSeq = 0;
 async function loadModels() {
   const seq = ++modelSeq, id = providerId(), note = $('modelNote');
-  $('modelList').innerHTML = ''; note.textContent = '';
+  const prev = modelName();
+  note.textContent = ''; showModelText();
   const p = providers.find(x => x.id === id);
   if (!p) return;
   try {
     const r = await api('api/models', {method: 'POST', headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({provider: id, apiKey: envMap()[p.keyEnv] || ''})});
     if (seq !== modelSeq) return;
-    for (const m of r.models) $('modelList').append(new Option(m));
-    note.textContent = `${r.models.length} models from ${p.label}. You can also type any model id.`;
+    if (r.models.length) { showModelSelect(r.models); if (r.models.includes(prev)) $('modelSel').value = prev; }
+    note.textContent = `${r.models.length} models from ${p.label}. Choose "Other…" to type any model id.`;
   } catch (e) {
     if (seq === modelSeq) note.textContent = `${e.message}. Type a model id manually.`;
   }
@@ -153,11 +167,11 @@ $('form').onsubmit = async ev => {
   const requests = pick('cpuReq', 'memReq'), limits = pick('cpuLim', 'memLim');
   const body = { name: $('name').value, soul: $('soul').value, env, dashboard: $('dash').checked,
     storageSize: $('storage').value,
-    model: { provider: providerId(), name: $('model').value, baseURL: $('baseurl').value } };
+    model: { provider: providerId(), name: modelName(), baseURL: $('baseurl').value } };
   if (Object.keys(requests).length || Object.keys(limits).length) body.resources = { requests, limits };
   try {
     await api('api/agents', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
-    $('dlg').close(); $('form').reset(); load();
+    $('dlg').close(); $('form').reset(); showModelText(); load();
   } catch (e) { $('err').textContent = e.message; }
 };
 load(); setInterval(load, 4000);
