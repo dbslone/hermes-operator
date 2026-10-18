@@ -15,13 +15,14 @@ Applies to humans and AI agents alike.
 
 - Unit-test coverage of `internal/...` must stay **≥ 90%** (`make cover`; CI enforces it). Never lower the bar; new code ships with its tests.
 - A bug fix starts with a failing regression test (unit if possible, e2e if it needs a real API server or RBAC).
+- UI changes (`internal/server/ui.html`) need a case in `test/ui/ui.test.js` (`make ui-test`, jsdom + node:test; CI job `ui`).
 - Chart changes need an assertion in `test/chart.sh`. Behaviour that touches Kubernetes (RBAC, PVCs, GC, rollouts) needs a check in `test/e2e.sh`, because the fake client cannot catch those.
 - Run `make check` before pushing; run `make e2e` (against a throwaway cluster, never a shared one) for anything touching reconcile, RBAC or the chart.
 - See `plans/0002-pr-review-and-test-gates.md` for the full review checklist.
 
 ## CI
 
-- `ci.yaml` runs unit (90% gate), chart, plans and e2e jobs on **every push to any branch** while the project is in early development. `pr-plan.yaml` runs only on pull requests and enforces "adds a new plan". To move to PR-only checks, follow `plans/0004-ci-on-every-commit.md`.
+- `ci.yaml` runs unit (90% gate), ui, chart, plans and e2e jobs on **every push to any branch** while the project is in early development. `pr-plan.yaml` runs only on pull requests and enforces "adds a new plan". To move to PR-only checks, follow `plans/0004-ci-on-every-commit.md`.
 
 ## Tooling
 

@@ -2,3 +2,4 @@ bin/
 *.tgz
 .DS_Store
 coverage.out
+node_modules/

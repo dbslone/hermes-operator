@@ -147,12 +147,13 @@ Hermes recommends ≥ 2 GB if you use browser tools.
 No local Go needed; everything runs in Docker. Run `make help` for all targets.
 
 ```sh
-make check        # build + unit tests (>= 90% coverage gate) + chart lint/tests + plans check
+make check        # build + unit tests (>= 90% coverage gate) + UI tests + chart lint/tests + plans check
+make ui-test      # just the jsdom tests for internal/server/ui.html (Docker, no local Node)
 make e2e IMG=hermes-operator:e2e   # real install on a THROWAWAY cluster (k3s/kind) via $KUBECONFIG
 make image IMG=ghcr.io/dbslone/hermes-operator:dev
 ```
 
-Tests come in three layers (unit, chart, end-to-end); see [Test coverage map](plans/0003-test-coverage-map.md). Contribution rules, including **"every PR adds a plan"**, are in [CLAUDE.md](CLAUDE.md).
+Tests come in four layers (unit, UI, chart, end-to-end); see [Test coverage map](plans/0003-test-coverage-map.md). Contribution rules, including **"every PR adds a plan"**, are in [CLAUDE.md](CLAUDE.md).
 
 ## Plans
 
@@ -169,6 +170,7 @@ Design decisions, test strategy and review gates live in [`plans/`](plans/). Eve
 | [0007 – README install guide](plans/0007-readme-install-guide.md) | Install requirements, subchart/namespace split, Argo CD CRD allow-list, configuration table |
 | [0008 – Dynamic provider and model dropdowns](plans/0008-dynamic-provider-and-model-dropdowns.md) | Live model lists, provider data, key handling, SSRF decision |
 | [0009 – Model field is a real dropdown](plans/0009-model-select-dropdown.md) | Replaces the datalist with a select once models load; text fallback |
+| [0010 – UI test runner](plans/0010-ui-test-runner.md) | jsdom tests for the embedded UI, `make ui-test`, CI job |
 | [Template](plans/TEMPLATE.md) | Copy to `plans/NNNN-slug.md` for your PR |
 
 ## License

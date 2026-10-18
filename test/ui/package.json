@@ -1,0 +1,7 @@
+{
+  "name": "hermes-operator-ui-tests",
+  "private": true,
+  "description": "Behaviour tests for internal/server/ui.html, run in jsdom with the built-in node:test runner.",
+  "scripts": { "test": "node --test" },
+  "devDependencies": { "jsdom": "^26.1.0" }
+}
