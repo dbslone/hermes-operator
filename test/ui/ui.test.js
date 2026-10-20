@@ -54,7 +54,8 @@ function load({ models, agents = [], providers = PROVIDERS } = {}) {
     w, $, calls,
     async open() { $('new').click(); await tick(); await tick(); },
     async pickProvider(id) { $('provider').value = id; fire($('provider'), 'change'); await tick(); },
-    async setKeys(text) { $('env').value = text; fire($('env'), 'change'); await tick(); },
+    async setKeys(text) { $('env').value = text; fire($('env'), 'change'); await new Promise((r) => setTimeout(r, 250)); },
+    async setApiKey(v) { $('apiKey').value = v; fire($('apiKey'), 'input'); await new Promise((r) => setTimeout(r, 250)); },
     pickModel(v) { $('modelSel').value = v; fire($('modelSel'), 'change'); },
     async submit(name) {
       $('name').value = name;
@@ -71,10 +72,14 @@ const reply400 = (error) => ({ ok: false, status: 400, statusText: 'Bad Request'
 const byProvider = (body) => body.provider === 'openrouter' ? openrouter()
   : body.apiKey === 'k' ? reply200({ models: ['claude-x'] }) : reply400('Anthropic needs an API key');
 
-test('provider select lists default, providers and Other…', async () => {
+test('provider select opens on Default, then providers and Other…', async () => {
   const ui = load({ models: byProvider });
   await ui.open();
+  assert.equal(ui.$('provider').value, '');
+  assert.equal(ui.$('provider').selectedOptions[0].textContent, 'Default');
   assert.deepEqual(ui.optionValues('provider'), ['', 'openrouter', 'anthropic', '__custom']);
+  assert.equal(ui.$('provider').closest('.row'), null);
+  assert.equal(ui.$('modelSel').closest('.row'), null);
 });
 
 test('without a provider the model is a plain text box', async () => {
@@ -89,8 +94,11 @@ test('choosing a provider turns model into a select of its models', async () => 
   const ui = load({ models: byProvider });
   await ui.open();
   await ui.pickProvider('openrouter');
+  assert.equal(ui.$('keyRow').hidden, true);
   assert.equal(ui.$('modelSel').hidden, false);
+  assert.equal(ui.$('modelSel').disabled, false);
   assert.equal(ui.$('model').hidden, true);
+  assert.equal(ui.$('modelSel').options[0].textContent, 'Default');
   assert.deepEqual(ui.optionValues('modelSel'), ['', 'a/one', 'b/two', '__custom']);
   assert.match(ui.$('modelNote').textContent, /2 models from OpenRouter/);
 });
@@ -106,43 +114,46 @@ test('the selected model and provider are submitted', async () => {
   assert.equal(ui.calls.created[0].model.name, 'b/two');
 });
 
-test('a provider whose model list cannot be fetched asks to continue', async () => {
+test('a provider that needs a key shows the key line and disables model until it is entered', async () => {
   const ui = load({ models: byProvider });
   await ui.open();
   await ui.pickProvider('anthropic');
-  assert.equal(ui.$('modelSel').hidden, true);
-  assert.equal(ui.$('model').hidden, true);
-  assert.equal(ui.$('stepKey').hidden, true);
-  assert.equal(ui.$('create').textContent, 'Next');
-  assert.match(ui.$('modelNote').textContent, /needs an API key/);
-});
-
-test('Next shows the provider key steps and link', async () => {
-  const ui = load({ models: byProvider });
-  await ui.open();
-  await ui.pickProvider('anthropic');
-  await ui.submit('bot');
-  assert.equal(ui.calls.created.length, 0);
-  assert.equal(ui.$('stepKey').hidden, false);
-  assert.equal(ui.$('keyTitle').textContent, 'Anthropic');
+  const after = ui.w.Node.DOCUMENT_POSITION_FOLLOWING;
+  assert.ok(ui.$('provider').compareDocumentPosition(ui.$('keyRow')) & after);
+  assert.ok(ui.$('keyRow').compareDocumentPosition(ui.$('modelSel')) & after);
+  assert.equal(ui.$('keyRow').hidden, false);
+  assert.equal(ui.$('apiKey').type, 'password');
   assert.match(ui.$('keySteps').textContent, /Click Create key/);
   assert.equal(ui.$('keyLink').getAttribute('href'), 'https://platform.claude.com/settings/keys');
-  assert.equal(ui.$('apiKey').type, 'password');
+  assert.equal(ui.$('modelSel').disabled, true);
+  assert.equal(ui.$('modelErr').textContent, 'API key is required');
+  assert.equal(ui.calls.models.length, 0);
+  await ui.submit('bot');
+  assert.equal(ui.calls.created.length, 0);
 });
 
-test('a valid key advances to the model screen and is saved on the agent', async () => {
+test('a partial key is not sent until typing pauses', async () => {
   const ui = load({ models: byProvider });
   await ui.open();
   await ui.pickProvider('anthropic');
-  await ui.setKeys('OTHER=1\nANTHROPIC_API_KEY=from-env');
-  assert.equal(ui.$('model').hidden, true);
-  await ui.submit('bot');
   ui.$('apiKey').value = 'k';
-  ui.$('keyNext').click();
+  ui.$('apiKey').dispatchEvent(new ui.w.Event('input', { bubbles: true }));
   await new Promise((r) => setTimeout(r, 20));
-  assert.equal(ui.$('stepModel').hidden, false);
-  assert.ok(ui.optionValues('modelStepSel').includes('claude-x'));
-  ui.$('modelStepSel').value = 'claude-x';
+  assert.equal(ui.calls.models.length, 0);
+  await new Promise((r) => setTimeout(r, 230));
+  assert.equal(ui.calls.models.at(-1).apiKey, 'k');
+});
+
+test('a valid key enables the model list and is saved on the agent', async () => {
+  const ui = load({ models: byProvider });
+  await ui.open();
+  await ui.pickProvider('anthropic');
+  ui.$('env').value = 'OTHER=1\nANTHROPIC_API_KEY=from-env';
+  await ui.setApiKey('k');
+  assert.equal(ui.$('modelSel').disabled, false);
+  assert.equal(ui.$('modelErr').textContent, '');
+  assert.ok(ui.optionValues('modelSel').includes('claude-x'));
+  ui.pickModel('claude-x');
   await ui.submit('bot');
   assert.equal(ui.calls.created.length, 1);
   assert.equal(ui.calls.created[0].model.name, 'claude-x');
@@ -151,57 +162,26 @@ test('a valid key advances to the model screen and is saved on the agent', async
   assert.equal(ui.calls.created[0].env.OTHER, '1');
 });
 
-test('a rejected key stays on the key screen', async () => {
+test('a rejected key leaves the model disabled and shows the error', async () => {
   const ui = load({ models: byProvider });
   await ui.open();
   await ui.pickProvider('anthropic');
-  await ui.submit('bot');
-  ui.$('apiKey').value = 'nope';
-  ui.$('keyNext').click();
-  await new Promise((r) => setTimeout(r, 20));
-  assert.equal(ui.$('stepKey').hidden, false);
-  assert.equal(ui.$('stepModel').hidden, true);
-  assert.match(ui.$('keyErr').textContent, /needs an API key/);
+  await ui.setApiKey('nope');
+  assert.equal(ui.$('modelSel').disabled, true);
+  assert.match(ui.$('modelErr').textContent, /needs an API key/);
   assert.equal(ui.calls.created.length, 0);
 });
 
-test('Type a model id instead submits the typed id', async () => {
-  const ui = load({ models: byProvider });
-  await ui.open();
-  await ui.pickProvider('anthropic');
-  await ui.submit('bot');
-  ui.$('keySkip').click();
-  assert.equal(ui.$('stepModel').hidden, false);
-  assert.equal(ui.$('modelStepSel').hidden, true);
-  assert.equal(ui.$('modelStepText').hidden, false);
-  ui.$('modelStepText').value = 'claude-typed';
-  await ui.submit('bot');
-  assert.equal(ui.calls.created[0].model.name, 'claude-typed');
-});
-
-test('Back from the model screen keeps the API key', async () => {
-  const ui = load({ models: byProvider });
-  await ui.open();
-  await ui.pickProvider('anthropic');
-  await ui.submit('bot');
-  ui.$('apiKey').value = 'k';
-  ui.$('keyNext').click();
-  await new Promise((r) => setTimeout(r, 20));
-  ui.$('modelBack').click();
-  assert.equal(ui.$('stepKey').hidden, false);
-  assert.equal(ui.$('apiKey').value, 'k');
-});
-
-test('a provider with no key steps shows a paste instruction', async () => {
+test('a keyed provider with no steps shows a paste line and drops an unsafe link', async () => {
   const ui = load({
     models: () => reply400('down'),
-    providers: [{ id: 'openrouter', label: 'OpenRouter', needsKey: false, keyEnv: 'OPENROUTER_API_KEY', keyURL: 'javascript:alert(1)' }],
+    providers: [{ id: 'plain', label: 'Plain', needsKey: true, keyEnv: 'PLAIN_KEY', keyURL: 'javascript:alert(1)' }],
   });
   await ui.open();
-  await ui.pickProvider('openrouter');
-  await ui.submit('bot');
-  assert.match(ui.$('keySteps').textContent, /Paste a OPENROUTER_API_KEY key/);
+  await ui.pickProvider('plain');
+  assert.match(ui.$('keySteps').textContent, /Paste a PLAIN_KEY key/);
   assert.equal(ui.$('keyLink').hidden, true);
+  assert.equal(ui.$('modelSel').disabled, true);
 });
 
 test('the key typed under API keys is sent for the lookup and loads the list', async () => {
