@@ -28,8 +28,10 @@
   textarea{min-height:70px;resize:vertical}
   .row{display:flex;gap:8px} .row>*{flex:1}
   details{margin-top:12px} summary{cursor:pointer;color:var(--mut)}
-  .actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
-  #err{color:var(--bad);margin-top:10px;min-height:1em}
+  .actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px;flex-wrap:wrap}
+  #keySteps{margin:8px 0 12px;padding-left:1.2em} #keySteps li{margin:4px 0}
+  a{color:var(--acc)}
+  #err,#keyErr{color:var(--bad);margin-top:10px;min-height:1em}
 </style>
 </head>
 <body>
@@ -43,40 +45,66 @@
 
 <dialog id="dlg">
   <form id="form" method="dialog">
-    <h2 style="margin:0 0 4px">New agent</h2>
-    <label>Name</label><input id="name" required pattern="[a-z][-a-z0-9]{0,38}[a-z0-9]?" placeholder="research-bot">
-    <div class="row">
-      <div><label>Provider</label>
-        <select id="provider"><option value="">(Hermes default)</option></select>
-        <input id="providerCustom" placeholder="provider id" hidden></div>
-      <div><label>Model</label>
-        <select id="modelSel" hidden></select>
-        <input id="model" autocomplete="off" placeholder="model id (choose a provider to pick from a list)"></div>
+    <div id="stepAgent">
+      <h2 style="margin:0 0 4px">New agent</h2>
+      <label>Name</label><input id="name" required pattern="[a-z][-a-z0-9]{0,38}[a-z0-9]?" placeholder="research-bot">
+      <div class="row">
+        <div><label>Provider</label>
+          <select id="provider"><option value="">(Hermes default)</option></select>
+          <input id="providerCustom" placeholder="provider id" hidden></div>
+        <div><label>Model</label>
+          <select id="modelSel" hidden></select>
+          <input id="model" autocomplete="off" placeholder="model id (choose a provider to pick from a list)"></div>
+      </div>
+      <div class="mut" id="modelNote"></div>
+      <label>Soul / instructions (optional)</label><textarea id="soul" placeholder="You are a helpful research assistant…"></textarea>
+      <details>
+        <summary>API keys &amp; advanced</summary>
+        <label>Environment variables, one per line as KEY=value (leave empty to use shared operator keys)</label>
+        <textarea id="env" placeholder="OPENROUTER_API_KEY=sk-..." spellcheck="false"></textarea>
+        <div class="mut">A key pasted here is saved on the agent and is also used to list models. If the list cannot be loaded, the next screen asks for the key.</div>
+        <label>Base URL (custom OpenAI-compatible endpoint)</label><input id="baseurl">
+        <div class="row">
+          <div><label>CPU request</label><input id="cpuReq" placeholder="default"></div>
+          <div><label>Memory request</label><input id="memReq" placeholder="default"></div>
+        </div>
+        <div class="row">
+          <div><label>CPU limit</label><input id="cpuLim" placeholder="default"></div>
+          <div><label>Memory limit</label><input id="memLim" placeholder="default"></div>
+        </div>
+        <label>Storage size</label><input id="storage" placeholder="default (2Gi)">
+        <label style="display:flex;gap:8px;align-items:center;margin-top:12px"><input type="checkbox" id="dash" style="width:auto"> Enable Hermes dashboard</label>
+      </details>
+      <div class="actions">
+        <button type="button" id="cancel">Cancel</button>
+        <button class="primary" id="create" type="submit">Create</button>
+      </div>
     </div>
-    <div class="mut" id="modelNote"></div>
-    <label>Soul / instructions (optional)</label><textarea id="soul" placeholder="You are a helpful research assistant…"></textarea>
-    <details>
-      <summary>API keys &amp; advanced</summary>
-      <label>Environment variables, one per line as KEY=value (leave empty to use shared operator keys)</label>
-      <textarea id="env" placeholder="OPENROUTER_API_KEY=sk-..." spellcheck="false"></textarea>
-      <div class="mut">The key for the chosen provider is also used once to list its models; it is not stored by that lookup.</div>
-      <label>Base URL (custom OpenAI-compatible endpoint)</label><input id="baseurl">
-      <div class="row">
-        <div><label>CPU request</label><input id="cpuReq" placeholder="default"></div>
-        <div><label>Memory request</label><input id="memReq" placeholder="default"></div>
+    <div id="stepKey" hidden>
+      <h2 id="keyTitle" style="margin:0 0 4px"></h2>
+      <div class="mut">Create or retrieve an API key, then paste it here. It is saved on the agent and used to list models.</div>
+      <ol id="keySteps"></ol>
+      <div><a id="keyLink" target="_blank" rel="noopener noreferrer" hidden></a></div>
+      <label for="apiKey">API key</label>
+      <input id="apiKey" type="password" autocomplete="off" spellcheck="false">
+      <div id="keyErr"></div>
+      <div class="actions">
+        <button type="button" id="keyBack">Back</button>
+        <button type="button" id="keySkip">Type a model id instead</button>
+        <button type="button" class="primary" id="keyNext">Next</button>
       </div>
-      <div class="row">
-        <div><label>CPU limit</label><input id="cpuLim" placeholder="default"></div>
-        <div><label>Memory limit</label><input id="memLim" placeholder="default"></div>
+    </div>
+    <div id="stepModel" hidden>
+      <h2 style="margin:0 0 4px">Choose a model</h2>
+      <div class="mut" id="modelStepNote"></div>
+      <select id="modelStepSel"></select>
+      <input id="modelStepText" autocomplete="off" placeholder="model id" hidden>
+      <div class="actions">
+        <button type="button" id="modelBack">Back</button>
+        <button class="primary" type="submit">Create</button>
       </div>
-      <label>Storage size</label><input id="storage" placeholder="default (2Gi)">
-      <label style="display:flex;gap:8px;align-items:center;margin-top:12px"><input type="checkbox" id="dash" style="width:auto"> Enable Hermes dashboard</label>
-    </details>
+    </div>
     <div id="err"></div>
-    <div class="actions">
-      <button type="button" id="cancel">Cancel</button>
-      <button class="primary" id="create" type="submit">Create</button>
-    </div>
   </form>
 </dialog>
 
@@ -124,26 +152,82 @@ async function loadProviders() {
   for (const p of providers) sel.append(new Option(p.label, p.id));
   sel.append(new Option('Other…', '__custom'));
 }
-// With a loaded list the model is a <select> (last option "Other…" reveals the text box);
-// otherwise only the text box shows.
-const modelName = () => !$('modelSel').hidden && $('modelSel').value !== '__custom' ? $('modelSel').value : $('model').value.trim();
-function showModelSelect(models) {
-  const sel = $('modelSel');
+// With a loaded list the model is a <select> (last option "Other…" reveals the text box).
+// When the list cannot be fetched, Next opens the API-key screen, then a model screen.
+let step = 'agent', modelFetchFailed = false;
+const knownProvider = () => providers.find(x => x.id === providerId());
+function showStep(name) {
+  step = name;
+  $('stepAgent').hidden = name !== 'agent';
+  $('stepKey').hidden = name !== 'key';
+  $('stepModel').hidden = name !== 'model';
+}
+function updatePrimary() {
+  $('create').textContent = knownProvider() && modelFetchFailed ? 'Next' : 'Create';
+}
+function modelName() {
+  if (step === 'model') {
+    if ($('modelStepSel').hidden || $('modelStepSel').value === '__custom') return $('modelStepText').value.trim();
+    return $('modelStepSel').value;
+  }
+  return !$('modelSel').hidden && $('modelSel').value !== '__custom' ? $('modelSel').value : $('model').value.trim();
+}
+function fillSelect(sel, models) {
   sel.innerHTML = '';
   sel.append(new Option('(Hermes default)', ''));
   for (const m of models) sel.append(new Option(m, m));
   sel.append(new Option('Other…', '__custom'));
-  sel.hidden = false; $('model').hidden = true; $('model').value = '';
+}
+function showModelSelect(models) {
+  fillSelect($('modelSel'), models);
+  $('modelSel').hidden = false; $('model').hidden = true; $('model').value = '';
 }
 function showModelText() { $('modelSel').hidden = true; $('modelSel').innerHTML = ''; $('model').hidden = false; }
+function fillModelStep(models) {
+  fillSelect($('modelStepSel'), models);
+  $('modelStepSel').hidden = false; $('modelStepText').hidden = true; $('modelStepText').value = '';
+}
 $('modelSel').onchange = () => { $('model').hidden = $('modelSel').value !== '__custom'; };
-// Fill the model dropdown from the provider's live model list. Never blocks creating an agent:
-// on any failure the field stays a plain text box.
+$('modelStepSel').onchange = () => { $('modelStepText').hidden = $('modelStepSel').value !== '__custom'; };
+function safeURL(u) {
+  try { const x = new URL(u); return x.protocol === 'https:' || x.protocol === 'http:' ? x.href : ''; }
+  catch (e) { return ''; }
+}
+function showKeyScreen() {
+  const p = knownProvider();
+  if (!p) return;
+  $('keyTitle').textContent = p.label;
+  const ol = $('keySteps');
+  ol.replaceChildren();
+  const steps = p.keySteps && p.keySteps.length ? p.keySteps : [`Paste a ${p.keyEnv} key.`];
+  for (const s of steps) { const li = document.createElement('li'); li.textContent = s; ol.append(li); }
+  const url = safeURL(p.keyURL);
+  if (url) { $('keyLink').hidden = false; $('keyLink').href = url; $('keyLink').textContent = url; }
+  else { $('keyLink').hidden = true; $('keyLink').removeAttribute('href'); }
+  if (!$('apiKey').value) $('apiKey').value = envMap()[p.keyEnv] || '';
+  $('keyErr').textContent = '';
+  showStep('key');
+}
+async function keyNext() {
+  const p = knownProvider();
+  if (!p) return;
+  $('keyErr').textContent = '';
+  try {
+    const r = await api('api/models', {method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({provider: p.id, apiKey: $('apiKey').value.trim()})});
+    if (!r.models || !r.models.length) throw new Error('No models returned.');
+    fillModelStep(r.models);
+    $('modelStepNote').textContent = `${r.models.length} models from ${p.label}. Choose "Other…" to type any model id.`;
+    showStep('model');
+  } catch (e) { $('keyErr').textContent = e.message; }
+}
+// Fill the model dropdown from the provider's live model list. A failure does not block
+// creating an agent: Next asks for a key, and that screen can still skip to a typed model id.
 let modelSeq = 0;
 async function loadModels() {
   const seq = ++modelSeq, id = providerId(), note = $('modelNote');
-  const prev = modelName();
-  note.textContent = ''; showModelText();
+  const prev = step === 'agent' ? modelName() : '';
+  note.textContent = ''; modelFetchFailed = false; showModelText(); updatePrimary();
   const p = providers.find(x => x.id === id);
   if (!p) return;
   try {
@@ -153,16 +237,35 @@ async function loadModels() {
     if (r.models.length) { showModelSelect(r.models); if (r.models.includes(prev)) $('modelSel').value = prev; }
     note.textContent = `${r.models.length} models from ${p.label}. Choose "Other…" to type any model id.`;
   } catch (e) {
-    if (seq === modelSeq) note.textContent = `${e.message}. Type a model id manually.`;
+    if (seq !== modelSeq) return;
+    modelFetchFailed = true;
+    $('modelSel').hidden = true; $('model').hidden = true;
+    note.textContent = `${e.message}. Continue to enter an API key and choose a model.`;
   }
+  if (seq === modelSeq) updatePrimary();
 }
 $('provider').onchange = () => { $('providerCustom').hidden = $('provider').value !== '__custom'; loadModels(); };
 $('env').onchange = loadModels;
-$('new').onclick = async () => { $('err').textContent = ''; $('dlg').showModal(); await loadProviders(); loadModels(); };
+$('keyBack').onclick = () => showStep('agent');
+$('keyNext').onclick = keyNext;
+$('keySkip').onclick = () => {
+  $('modelStepSel').hidden = true; $('modelStepSel').innerHTML = '';
+  $('modelStepText').hidden = false;
+  $('modelStepNote').textContent = 'Type any model id.';
+  showStep('model');
+};
+$('modelBack').onclick = () => showStep('key');
+$('new').onclick = async () => {
+  $('err').textContent = ''; $('keyErr').textContent = '';
+  showStep('agent'); modelFetchFailed = false; updatePrimary();
+  $('dlg').showModal(); await loadProviders(); loadModels();
+};
 $('cancel').onclick = () => $('dlg').close();
-$('form').onsubmit = async ev => {
-  ev.preventDefault();
+async function createAgent() {
   const env = envMap();
+  const p = knownProvider();
+  const key = $('apiKey').value.trim();
+  if (p && p.keyEnv && key) env[p.keyEnv] = key;
   const pick = (c, m) => { const o = {}; if ($(c).value) o.cpu = $(c).value; if ($(m).value) o.memory = $(m).value; return o; };
   const requests = pick('cpuReq', 'memReq'), limits = pick('cpuLim', 'memLim');
   const body = { name: $('name').value, soul: $('soul').value, env, dashboard: $('dash').checked,
@@ -171,8 +274,14 @@ $('form').onsubmit = async ev => {
   if (Object.keys(requests).length || Object.keys(limits).length) body.resources = { requests, limits };
   try {
     await api('api/agents', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
-    $('dlg').close(); $('form').reset(); showModelText(); load();
+    $('dlg').close(); $('form').reset(); showStep('agent'); showModelText(); modelFetchFailed = false; updatePrimary(); load();
   } catch (e) { $('err').textContent = e.message; }
+}
+$('form').onsubmit = async ev => {
+  ev.preventDefault();
+  if (step === 'key') { await keyNext(); return; }
+  if (step === 'agent' && modelFetchFailed && knownProvider()) { showKeyScreen(); return; }
+  await createAgent();
 };
 load(); setInterval(load, 4000);
 </script>

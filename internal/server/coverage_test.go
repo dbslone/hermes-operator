@@ -165,7 +165,10 @@ func TestProvidersAndModelsEndpoints(t *testing.T) {
 		_, _ = w.Write([]byte(`{"data":[{"id":"m1"}]}`))
 	}))
 	defer up.Close()
-	cat := models.NewCatalog([]models.Provider{{ID: "p", Label: "P", ModelsURL: up.URL, Auth: "bearer", KeyEnv: "P_KEY"}})
+	cat := models.NewCatalog([]models.Provider{{
+		ID: "p", Label: "P", ModelsURL: up.URL, Auth: "bearer", KeyEnv: "P_KEY",
+		KeyURL: "https://example.com/keys", KeySteps: []string{"one", "two", "three"},
+	}})
 	ts := httptest.NewServer(buildMux(newSvc(), cat))
 	defer ts.Close()
 
@@ -178,6 +181,13 @@ func TestProvidersAndModelsEndpoints(t *testing.T) {
 	resp.Body.Close()
 	if len(ps) != 1 || ps[0]["id"] != "p" || ps[0]["keyEnv"] != "P_KEY" {
 		t.Fatalf("providers: %v", ps)
+	}
+	if ps[0]["keyURL"] != "https://example.com/keys" {
+		t.Errorf("keyURL: %v", ps[0]["keyURL"])
+	}
+	steps, _ := ps[0]["keySteps"].([]any)
+	if len(steps) != 3 || steps[0] != "one" {
+		t.Errorf("keySteps: %v", ps[0]["keySteps"])
 	}
 	for _, k := range []string{"modelsURL", "ModelsURL"} {
 		if _, leaked := ps[0][k]; leaked {

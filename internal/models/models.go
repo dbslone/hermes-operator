@@ -26,26 +26,34 @@ var builtin []byte
 // configuration only: the UI never supplies a URL, so the lookup cannot be
 // pointed at arbitrary hosts.
 type Provider struct {
-	ID        string `json:"id"`
-	Label     string `json:"label"`
-	ModelsURL string `json:"modelsURL"`
-	Auth      string `json:"auth"` // none | bearer | anthropic
-	KeyEnv    string `json:"keyEnv,omitempty"`
+	ID        string   `json:"id"`
+	Label     string   `json:"label"`
+	ModelsURL string   `json:"modelsURL"`
+	Auth      string   `json:"auth"` // none | bearer | anthropic
+	KeyEnv    string   `json:"keyEnv,omitempty"`
+	KeyURL    string   `json:"keyURL,omitempty"`   // documentation link; the operator never fetches it
+	KeySteps  []string `json:"keySteps,omitempty"` // how to create or retrieve KeyEnv
 }
 
-// PublicProvider is what the UI sees: no URL, so the browser cannot learn or choose the upstream.
+// PublicProvider is what the UI sees: no models URL, so the browser cannot learn or choose the upstream.
+// KeyURL is a page the user opens; it is not a host the operator calls.
 type PublicProvider struct {
-	ID       string `json:"id"`
-	Label    string `json:"label"`
-	NeedsKey bool   `json:"needsKey"`
-	KeyEnv   string `json:"keyEnv,omitempty"`
+	ID       string   `json:"id"`
+	Label    string   `json:"label"`
+	NeedsKey bool     `json:"needsKey"`
+	KeyEnv   string   `json:"keyEnv,omitempty"`
+	KeyURL   string   `json:"keyURL,omitempty"`
+	KeySteps []string `json:"keySteps,omitempty"`
 }
 
 // Public lists the providers for the UI dropdown.
 func (c *Catalog) Public() []PublicProvider {
 	out := make([]PublicProvider, 0, len(c.Providers))
 	for _, p := range c.Providers {
-		out = append(out, PublicProvider{p.ID, p.Label, p.NeedsKey(), p.KeyEnv})
+		out = append(out, PublicProvider{
+			ID: p.ID, Label: p.Label, NeedsKey: p.NeedsKey(), KeyEnv: p.KeyEnv,
+			KeyURL: p.KeyURL, KeySteps: p.KeySteps,
+		})
 	}
 	return out
 }

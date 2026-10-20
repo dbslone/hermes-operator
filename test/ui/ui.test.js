@@ -8,7 +8,11 @@ const { JSDOM } = require('jsdom');
 const HTML = fs.readFileSync(path.join(__dirname, '../../internal/server/ui.html'), 'utf8');
 const PROVIDERS = [
   { id: 'openrouter', label: 'OpenRouter', needsKey: false, keyEnv: 'OPENROUTER_API_KEY' },
-  { id: 'anthropic', label: 'Anthropic', needsKey: true, keyEnv: 'ANTHROPIC_API_KEY' },
+  {
+    id: 'anthropic', label: 'Anthropic', needsKey: true, keyEnv: 'ANTHROPIC_API_KEY',
+    keyURL: 'https://platform.claude.com/settings/keys',
+    keySteps: ['Sign in to the Claude Console.', 'Click Create key.', 'Copy the sk-ant- key.'],
+  },
 ];
 
 // The page polls with setInterval, which would keep node alive: close every window at the end.
@@ -16,7 +20,7 @@ const windows = [];
 after(() => windows.forEach((w) => w.close()));
 
 // Fresh page per test. `models` decides the /api/models answer; `calls` records requests.
-function load({ models, agents = [] } = {}) {
+function load({ models, agents = [], providers = PROVIDERS } = {}) {
   const calls = { models: [], created: [] };
   const reply = (code, body) => ({ ok: code < 300, status: code, statusText: 'x', json: async () => body });
   const dom = new JSDOM(HTML, {
@@ -26,7 +30,7 @@ function load({ models, agents = [] } = {}) {
       w.HTMLDialogElement.prototype.showModal = function () { this.open = true; };
       w.HTMLDialogElement.prototype.close = function () { this.open = false; };
       w.fetch = async (url, opts = {}) => {
-        if (url === 'api/providers') return reply(200, PROVIDERS);
+        if (url === 'api/providers') return reply(200, providers);
         if (url === 'api/models') {
           const body = JSON.parse(opts.body);
           calls.models.push(body);
@@ -102,13 +106,102 @@ test('the selected model and provider are submitted', async () => {
   assert.equal(ui.calls.created[0].model.name, 'b/two');
 });
 
-test('a provider that needs a key falls back to the text box with the reason', async () => {
+test('a provider whose model list cannot be fetched asks to continue', async () => {
   const ui = load({ models: byProvider });
   await ui.open();
   await ui.pickProvider('anthropic');
   assert.equal(ui.$('modelSel').hidden, true);
-  assert.equal(ui.$('model').hidden, false);
+  assert.equal(ui.$('model').hidden, true);
+  assert.equal(ui.$('stepKey').hidden, true);
+  assert.equal(ui.$('create').textContent, 'Next');
   assert.match(ui.$('modelNote').textContent, /needs an API key/);
+});
+
+test('Next shows the provider key steps and link', async () => {
+  const ui = load({ models: byProvider });
+  await ui.open();
+  await ui.pickProvider('anthropic');
+  await ui.submit('bot');
+  assert.equal(ui.calls.created.length, 0);
+  assert.equal(ui.$('stepKey').hidden, false);
+  assert.equal(ui.$('keyTitle').textContent, 'Anthropic');
+  assert.match(ui.$('keySteps').textContent, /Click Create key/);
+  assert.equal(ui.$('keyLink').getAttribute('href'), 'https://platform.claude.com/settings/keys');
+  assert.equal(ui.$('apiKey').type, 'password');
+});
+
+test('a valid key advances to the model screen and is saved on the agent', async () => {
+  const ui = load({ models: byProvider });
+  await ui.open();
+  await ui.pickProvider('anthropic');
+  await ui.setKeys('OTHER=1\nANTHROPIC_API_KEY=from-env');
+  assert.equal(ui.$('model').hidden, true);
+  await ui.submit('bot');
+  ui.$('apiKey').value = 'k';
+  ui.$('keyNext').click();
+  await new Promise((r) => setTimeout(r, 20));
+  assert.equal(ui.$('stepModel').hidden, false);
+  assert.ok(ui.optionValues('modelStepSel').includes('claude-x'));
+  ui.$('modelStepSel').value = 'claude-x';
+  await ui.submit('bot');
+  assert.equal(ui.calls.created.length, 1);
+  assert.equal(ui.calls.created[0].model.name, 'claude-x');
+  assert.equal(ui.calls.created[0].model.provider, 'anthropic');
+  assert.equal(ui.calls.created[0].env.ANTHROPIC_API_KEY, 'k');
+  assert.equal(ui.calls.created[0].env.OTHER, '1');
+});
+
+test('a rejected key stays on the key screen', async () => {
+  const ui = load({ models: byProvider });
+  await ui.open();
+  await ui.pickProvider('anthropic');
+  await ui.submit('bot');
+  ui.$('apiKey').value = 'nope';
+  ui.$('keyNext').click();
+  await new Promise((r) => setTimeout(r, 20));
+  assert.equal(ui.$('stepKey').hidden, false);
+  assert.equal(ui.$('stepModel').hidden, true);
+  assert.match(ui.$('keyErr').textContent, /needs an API key/);
+  assert.equal(ui.calls.created.length, 0);
+});
+
+test('Type a model id instead submits the typed id', async () => {
+  const ui = load({ models: byProvider });
+  await ui.open();
+  await ui.pickProvider('anthropic');
+  await ui.submit('bot');
+  ui.$('keySkip').click();
+  assert.equal(ui.$('stepModel').hidden, false);
+  assert.equal(ui.$('modelStepSel').hidden, true);
+  assert.equal(ui.$('modelStepText').hidden, false);
+  ui.$('modelStepText').value = 'claude-typed';
+  await ui.submit('bot');
+  assert.equal(ui.calls.created[0].model.name, 'claude-typed');
+});
+
+test('Back from the model screen keeps the API key', async () => {
+  const ui = load({ models: byProvider });
+  await ui.open();
+  await ui.pickProvider('anthropic');
+  await ui.submit('bot');
+  ui.$('apiKey').value = 'k';
+  ui.$('keyNext').click();
+  await new Promise((r) => setTimeout(r, 20));
+  ui.$('modelBack').click();
+  assert.equal(ui.$('stepKey').hidden, false);
+  assert.equal(ui.$('apiKey').value, 'k');
+});
+
+test('a provider with no key steps shows a paste instruction', async () => {
+  const ui = load({
+    models: () => reply400('down'),
+    providers: [{ id: 'openrouter', label: 'OpenRouter', needsKey: false, keyEnv: 'OPENROUTER_API_KEY', keyURL: 'javascript:alert(1)' }],
+  });
+  await ui.open();
+  await ui.pickProvider('openrouter');
+  await ui.submit('bot');
+  assert.match(ui.$('keySteps').textContent, /Paste a OPENROUTER_API_KEY key/);
+  assert.equal(ui.$('keyLink').hidden, true);
 });
 
 test('the key typed under API keys is sent for the lookup and loads the list', async () => {

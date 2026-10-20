@@ -29,6 +29,32 @@ func TestBuiltinProviders(t *testing.T) {
 	if ids["openrouter"].NeedsKey() || !ids["anthropic"].NeedsKey() || !ids["openai-api"].NeedsKey() {
 		t.Error("key requirements wrong")
 	}
+	wantURL := map[string]string{
+		"openrouter": "https://openrouter.ai/keys",
+		"anthropic":  "https://platform.claude.com/settings/keys",
+		"openai-api": "https://platform.openai.com/api-keys",
+		"deepseek":   "https://platform.deepseek.com/api_keys",
+		"xai":        "https://console.x.ai/",
+		"fireworks":  "https://app.fireworks.ai/settings/users/api-keys",
+	}
+	for id, url := range wantURL {
+		p, ok := ids[id]
+		if !ok {
+			t.Errorf("missing built-in provider %s", id)
+			continue
+		}
+		if p.KeyURL != url {
+			t.Errorf("%s keyURL = %q, want %s", id, p.KeyURL, url)
+		}
+		if len(p.KeySteps) < 3 {
+			t.Errorf("%s has %d key steps, want at least 3", id, len(p.KeySteps))
+		}
+	}
+	for _, pub := range NewCatalog(ps).Public() {
+		if pub.KeyURL == "" || len(pub.KeySteps) < 3 {
+			t.Errorf("public provider %s missing key help: %+v", pub.ID, pub)
+		}
+	}
 }
 
 func TestLoadProvidersMerge(t *testing.T) {

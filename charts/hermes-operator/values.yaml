@@ -37,12 +37,18 @@ agentDefaults:
 # replace a built-in one with the same id. The model list is fetched live from
 # `modelsURL` (an OpenAI-style `{"data":[{"id":...}]}` response), so new models need no release.
 # auth: none | bearer | anthropic.  id must be a provider id Hermes accepts.
+# keyURL is a link on the API-key screen. keySteps are the numbered instructions
+# for creating or retrieving that key. The operator never fetches keyURL.
 providers: []
 #  - id: nvidia
 #    label: NVIDIA NIM
 #    modelsURL: https://integrate.api.nvidia.com/v1/models
 #    auth: bearer
 #    keyEnv: NVIDIA_API_KEY
+#    keyURL: https://build.nvidia.com/
+#    keySteps:
+#      - Sign in and open API keys.
+#      - Create a key and paste it on the next screen.
 
 # Resources for the operator pod itself.
 resources:

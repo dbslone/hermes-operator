@@ -1,33 +1,72 @@
 # Built-in providers. Ids are the values Hermes accepts in config.yaml `model.provider`.
 # Add or override entries with --providers-file (chart value `providers`); no release needed.
 # auth: bearer (Authorization: Bearer <key>), anthropic (x-api-key + anthropic-version) or none.
+# keyURL and keySteps are shown when the model list cannot be fetched. They are not fetched by the operator.
 - id: openrouter
   label: OpenRouter
   modelsURL: https://openrouter.ai/api/v1/models
   auth: none
   keyEnv: OPENROUTER_API_KEY
+  keyURL: https://openrouter.ai/keys
+  keySteps:
+    - Sign in at the OpenRouter keys page, or create an account.
+    - Click Create Key, name it, and optionally set a credit limit.
+    - Copy the key immediately. It starts with sk-or- and cannot be shown again.
+    - Paste it below. This key is saved on the agent. Listing models does not require it.
 - id: anthropic
   label: Anthropic
   modelsURL: https://api.anthropic.com/v1/models?limit=1000
   auth: anthropic
   keyEnv: ANTHROPIC_API_KEY
+  keyURL: https://platform.claude.com/settings/keys
+  keySteps:
+    - Sign in at the Claude Console, or create an account.
+    - Open the API keys page.
+    - Click Create key, name it, and set Linked account to yourself.
+    - Copy the key immediately. It starts with sk-ant- and is shown only once.
+    - Paste it below.
 - id: openai-api
   label: OpenAI
   modelsURL: https://api.openai.com/v1/models
   auth: bearer
   keyEnv: OPENAI_API_KEY
+  keyURL: https://platform.openai.com/api-keys
+  keySteps:
+    - Sign in at the OpenAI API keys page.
+    - Click Create new secret key.
+    - Copy the key immediately. The full secret is shown only once.
+    - Paste it below.
 - id: deepseek
   label: DeepSeek
   modelsURL: https://api.deepseek.com/models
   auth: bearer
   keyEnv: DEEPSEEK_API_KEY
+  keyURL: https://platform.deepseek.com/api_keys
+  keySteps:
+    - Sign in at the DeepSeek platform, or create an account.
+    - Open API keys and click Create new API key.
+    - Copy the key immediately. It starts with sk- and is shown only once.
+    - Top up the account if the balance is empty. The API does not serve requests at a zero balance.
+    - Paste it below.
 - id: xai
   label: xAI
   modelsURL: https://api.x.ai/v1/models
   auth: bearer
   keyEnv: XAI_API_KEY
+  keyURL: https://console.x.ai/
+  keySteps:
+    - Sign in at the xAI console and add credits if the account is empty.
+    - Open API Keys in the sidebar.
+    - Click Create API key and copy it immediately. It is shown only once.
+    - Paste it below.
 - id: fireworks
   label: Fireworks
   modelsURL: https://api.fireworks.ai/inference/v1/models
   auth: bearer
   keyEnv: FIREWORKS_API_KEY
+  keyURL: https://app.fireworks.ai/settings/users/api-keys
+  keySteps:
+    - Sign in at the Fireworks API keys page.
+    - Click Create API Key.
+    - Copy the key. The full value is shown when it is created.
+    - Paste it below.
