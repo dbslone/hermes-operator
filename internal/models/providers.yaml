@@ -1,6 +1,7 @@
 # Built-in providers. Ids are the values Hermes accepts in config.yaml `model.provider`.
 # Add or override entries with --providers-file (chart value `providers`); no release needed.
 # auth: bearer (Authorization: Bearer <key>), anthropic (x-api-key + anthropic-version) or none.
+# modelPrefix keeps only ids with that prefix. runtimeProvider is what the UI saves on the agent.
 # keyURL and keySteps are shown when the model list cannot be fetched. They are not fetched by the operator.
 - id: openrouter
   label: OpenRouter
@@ -15,16 +16,18 @@
     - Paste it below. This key is saved on the agent. Listing models does not require it.
 - id: anthropic
   label: Anthropic
-  modelsURL: https://api.anthropic.com/v1/models?limit=1000
-  auth: anthropic
-  keyEnv: ANTHROPIC_API_KEY
-  keyURL: https://platform.claude.com/settings/keys
+  modelsURL: https://openrouter.ai/api/v1/models
+  auth: none
+  modelPrefix: anthropic/
+  runtimeProvider: openrouter
+  keyEnv: OPENROUTER_API_KEY
+  keyURL: https://openrouter.ai/keys
   keySteps:
-    - Sign in at the Claude Console, or create an account.
-    - Open the API keys page.
-    - Click Create key, name it, and set Linked account to yourself.
-    - Copy the key immediately. It starts with sk-ant- and is shown only once.
-    - Paste it below.
+    - Claude models are listed from OpenRouter. No Anthropic API key is used.
+    - Sign in at the OpenRouter keys page, or create an account.
+    - Click Create Key, name it, and optionally set a credit limit.
+    - Copy the key immediately. It starts with sk-or- and cannot be shown again.
+    - Paste it under Advanced as OPENROUTER_API_KEY. OpenRouter bills these models.
 - id: openai-api
   label: OpenAI
   modelsURL: https://api.openai.com/v1/models

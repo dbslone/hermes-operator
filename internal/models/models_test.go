@@ -2,6 +2,7 @@ package models
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -26,12 +27,16 @@ func TestBuiltinProviders(t *testing.T) {
 			t.Errorf("missing built-in provider %s", want)
 		}
 	}
-	if ids["openrouter"].NeedsKey() || !ids["anthropic"].NeedsKey() || !ids["openai-api"].NeedsKey() {
+	if ids["openrouter"].NeedsKey() || ids["anthropic"].NeedsKey() || !ids["openai-api"].NeedsKey() {
 		t.Error("key requirements wrong")
+	}
+	anth := ids["anthropic"]
+	if anth.ModelsURL != ids["openrouter"].ModelsURL || anth.ModelPrefix != "anthropic/" || anth.RuntimeProvider != "openrouter" || anth.KeyEnv != "OPENROUTER_API_KEY" {
+		t.Errorf("anthropic should list Claude models from OpenRouter: %+v", anth)
 	}
 	wantURL := map[string]string{
 		"openrouter": "https://openrouter.ai/keys",
-		"anthropic":  "https://platform.claude.com/settings/keys",
+		"anthropic":  "https://openrouter.ai/keys",
 		"openai-api": "https://platform.openai.com/api-keys",
 		"deepseek":   "https://platform.deepseek.com/api_keys",
 		"xai":        "https://console.x.ai/",
@@ -54,6 +59,31 @@ func TestBuiltinProviders(t *testing.T) {
 		if pub.KeyURL == "" || len(pub.KeySteps) < 3 {
 			t.Errorf("public provider %s missing key help: %+v", pub.ID, pub)
 		}
+		raw, err := json.Marshal(pub)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(string(raw), "modelsURL") || strings.Contains(string(raw), "modelPrefix") {
+			t.Errorf("public provider %s leaks catalog config: %s", pub.ID, raw)
+		}
+		if pub.ID == "anthropic" && pub.RuntimeProvider != "openrouter" {
+			t.Errorf("anthropic runtime provider: %+v", pub)
+		}
+	}
+}
+
+func TestModelPrefix(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"data":[{"id":"openai/gpt"},{"id":"anthropic/claude-x"},{"id":"anthropic"},{"id":""}]}`))
+	}))
+	t.Cleanup(ts.Close)
+	c := NewCatalog([]Provider{{
+		ID: "anthropic", Label: "Anthropic", ModelsURL: ts.URL, Auth: "none",
+		ModelPrefix: "anthropic/", RuntimeProvider: "openrouter",
+	}})
+	got, err := c.Models(context.Background(), "anthropic", "")
+	if err != nil || strings.Join(got, ",") != "anthropic/claude-x" {
+		t.Fatalf("got %v %v", got, err)
 	}
 }
 

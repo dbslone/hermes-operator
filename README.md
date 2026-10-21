@@ -15,7 +15,7 @@ Spin up [Hermes agents](https://github.com/NousResearch/hermes-agent) on Kuberne
 
 ```sh
 helm install hermes-operator oci://ghcr.io/dbslone/charts/hermes-operator \
-  --version 0.0.6 -n hermes --create-namespace
+  --version 0.0.7 -n hermes --create-namespace
 kubectl -n hermes port-forward svc/hermes-operator 8080:80   # UI: http://localhost:8080
 ```
 
@@ -27,7 +27,7 @@ By default the operator watches, and creates agents in, **the namespace it is in
 # Chart.yaml
 dependencies:
   - name: hermes-operator
-    version: 0.0.6
+    version: 0.0.7
     repository: oci://ghcr.io/dbslone/charts
 ```
 ```yaml
@@ -63,7 +63,7 @@ spec:
     - { group: apiextensions.k8s.io, kind: CustomResourceDefinition }
 ```
 
-The `default` project already allows everything. Then point an Application at the OCI chart (`repoURL: ghcr.io/dbslone/charts`, `chart: hermes-operator`, `targetRevision: 0.0.6`, source type OCI) or add it as a dependency as above. With Helm directly there is nothing to configure: it installs the CRD on first install.
+The `default` project already allows everything. Then point an Application at the OCI chart (`repoURL: ghcr.io/dbslone/charts`, `chart: hermes-operator`, `targetRevision: 0.0.7`, source type OCI) or add it as a dependency as above. With Helm directly there is nothing to configure: it installs the CRD on first install.
 
 > Helm installs CRDs only on first install and never upgrades them. To upgrade the CRD run
 > `kubectl apply -f charts/hermes-operator/crds/`. Uninstalling the chart leaves the CRD (and so your agents and their data) in place.
@@ -78,14 +78,14 @@ The `default` project already allows everything. Then point an Application at th
 | `agentDefaults.resources` | 500m / 1Gi request, 4Gi memory limit | Per-agent resources |
 | `agentDefaults.storage.size` | `2Gi` | PVC per agent (`storageClassName: ""` = cluster default) |
 | `agentDefaults.envFromSecret` | `""` | Secret whose keys become env vars (provider API keys) in every agent |
-| `providers` | `[]` | Extra/overriding UI model providers (`id`, `label`, `modelsURL`, `auth`, `keyEnv`, `keyURL`, `keySteps`); see below |
+| `providers` | `[]` | Extra/overriding UI model providers (`id`, `label`, `modelsURL`, `auth`, `modelPrefix`, `runtimeProvider`, `keyEnv`, `keyURL`, `keySteps`); see below |
 | `agents` | `{}` | Declare `HermesAgent`s in values |
 | `image.repository` / `image.tag` | ghcr image / chart `appVersion` | Operator image |
 | `service`, `ingress` | `ClusterIP`, off | **No authentication**; see the warning above |
 
 ## Creating agents
 
-In the UI, **Provider** is a dropdown that opens on **Default**. **Model** is on the next line and is a dropdown filled live from the provider's own API (cached ten minutes), so newly released models appear without upgrading the operator. OpenRouter's list is public. A provider that needs an API key shows that field between Provider and Model, with the steps to create or retrieve the key; until the key is entered, Model stays disabled and the form says the API key is required. The key is saved on the agent. `Other…` on a loaded list, and a custom provider id, stay free text. Any provider id and model id Hermes accepts still works. Built in: OpenRouter, Anthropic, OpenAI (`openai-api`), DeepSeek, xAI, Fireworks. Add more, or change an endpoint or the key instructions, with chart values:
+In the UI, **Provider** is a dropdown that opens on **Default**. **Model** is on the next line and is a dropdown filled live from the provider's own API (cached ten minutes), so newly released models appear without upgrading the operator. OpenRouter's list is public. **Anthropic** uses that same public list, kept to model ids that start with `anthropic/`, and saving an agent stores provider `openrouter` with that id. OpenRouter bills those requests. Save `OPENROUTER_API_KEY` under Advanced. A provider that needs an API key shows that field between Provider and Model, with the steps to create or retrieve the key; until the key is entered, Model stays disabled and the form says the API key is required. The key is saved on the agent. `Other…` on a loaded list, and a custom provider id, stay free text. kubectl, Helm, REST, and MCP still accept any provider id Hermes accepts, including `anthropic` with `ANTHROPIC_API_KEY`. Built in: OpenRouter, Anthropic, OpenAI (`openai-api`), DeepSeek, xAI, Fireworks. Add more, or change an endpoint or the key instructions, with chart values:
 
 ```yaml
 providers:
@@ -177,6 +177,7 @@ Design decisions, test strategy and review gates live in [`plans/`](plans/). Eve
 | [0010 – UI test runner](plans/0010-ui-test-runner.md) | jsdom tests for the embedded UI, `make ui-test`, CI job |
 | [0011 – Model key wizard](plans/0011-model-key-wizard.md) | When a model list cannot be loaded, ask for an API key (with steps) and then which model |
 | [0012 – Inline provider, key, and model](plans/0012-inline-provider-key.md) | One screen: Default provider, key between provider and model, model disabled until the key is entered |
+| [0013 – Anthropic models from OpenRouter](plans/0013-anthropic-models-from-openrouter.md) | Claude model list comes from OpenRouter; the agent is saved as provider openrouter |
 | [Template](plans/TEMPLATE.md) | Copy to `plans/NNNN-slug.md` for your PR |
 
 ## License

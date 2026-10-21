@@ -37,6 +37,8 @@ agentDefaults:
 # replace a built-in one with the same id. The model list is fetched live from
 # `modelsURL` (an OpenAI-style `{"data":[{"id":...}]}` response), so new models need no release.
 # auth: none | bearer | anthropic.  id must be a provider id Hermes accepts.
+# modelPrefix keeps only ids with that prefix. runtimeProvider is saved on the agent
+# instead of id (the built-in Anthropic entry lists Claude models from OpenRouter this way).
 # keyURL is a link on the API-key screen. keySteps are the numbered instructions
 # for creating or retrieving that key. The operator never fetches keyURL.
 providers: []

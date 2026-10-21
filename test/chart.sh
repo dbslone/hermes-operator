@@ -45,6 +45,8 @@ has   "providers: file written when set"  'providers.yaml: \|' --set 'providers[
 has   "providers: flag passed when set"   '--providers-file=/etc/hermes-operator/providers.yaml' --set 'providers[0].id=nvidia' --set 'providers[0].modelsURL=https://x/v1/models'
 has   "providers: entry rendered"         'modelsURL: https://x/v1/models' --set 'providers[0].id=nvidia' --set 'providers[0].modelsURL=https://x/v1/models'
 has   "providers: key help rendered"    'keyURL: https://example.com/keys' --set 'providers[0].id=nvidia' --set 'providers[0].keyURL=https://example.com/keys' --set 'providers[0].keySteps[0]=Sign in'
+has   "providers: model prefix rendered" 'modelPrefix: anthropic/' --set 'providers[0].id=anthropic' --set 'providers[0].modelPrefix=anthropic/' --set 'providers[0].runtimeProvider=openrouter'
+has   "providers: runtime provider rendered" 'runtimeProvider: openrouter' --set 'providers[0].id=anthropic' --set 'providers[0].modelPrefix=anthropic/' --set 'providers[0].runtimeProvider=openrouter'
 
 # declarative agents
 has   "agents: renders HermesAgent"   '^kind: HermesAgent$' --set agents.bot.model.provider=openrouter

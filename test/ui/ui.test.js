@@ -114,6 +114,32 @@ test('the selected model and provider are submitted', async () => {
   assert.equal(ui.calls.created[0].model.name, 'b/two');
 });
 
+test('Anthropic listed from OpenRouter submits the OpenRouter provider', async () => {
+  const ui = load({
+    models: () => reply200({ models: ['anthropic/claude-x'] }),
+    providers: [
+      { id: 'openrouter', label: 'OpenRouter', needsKey: false, keyEnv: 'OPENROUTER_API_KEY' },
+      {
+        id: 'anthropic', label: 'Anthropic', needsKey: false,
+        runtimeProvider: 'openrouter', keyEnv: 'OPENROUTER_API_KEY',
+      },
+    ],
+  });
+  await ui.open();
+  await ui.pickProvider('anthropic');
+  assert.equal(ui.$('keyRow').hidden, true);
+  assert.equal(ui.$('modelSel').disabled, false);
+  assert.equal(ui.calls.models.length, 1);
+  assert.equal(ui.calls.models[0].provider, 'anthropic');
+  assert.equal(ui.calls.models[0].apiKey, '');
+  assert.match(ui.$('modelNote').textContent, /1 models from OpenRouter/);
+  assert.match(ui.$('modelNote').textContent, /Save OPENROUTER_API_KEY under Advanced/);
+  ui.pickModel('anthropic/claude-x');
+  await ui.submit('bot');
+  assert.equal(ui.calls.created[0].model.provider, 'openrouter');
+  assert.equal(ui.calls.created[0].model.name, 'anthropic/claude-x');
+});
+
 test('a provider that needs a key shows the key line and disables model until it is entered', async () => {
   const ui = load({ models: byProvider });
   await ui.open();

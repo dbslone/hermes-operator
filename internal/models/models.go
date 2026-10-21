@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"os"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -26,24 +27,27 @@ var builtin []byte
 // configuration only: the UI never supplies a URL, so the lookup cannot be
 // pointed at arbitrary hosts.
 type Provider struct {
-	ID        string   `json:"id"`
-	Label     string   `json:"label"`
-	ModelsURL string   `json:"modelsURL"`
-	Auth      string   `json:"auth"` // none | bearer | anthropic
-	KeyEnv    string   `json:"keyEnv,omitempty"`
-	KeyURL    string   `json:"keyURL,omitempty"`   // documentation link; the operator never fetches it
-	KeySteps  []string `json:"keySteps,omitempty"` // how to create or retrieve KeyEnv
+	ID              string   `json:"id"`
+	Label           string   `json:"label"`
+	ModelsURL       string   `json:"modelsURL"`
+	Auth            string   `json:"auth"`                      // none | bearer | anthropic
+	ModelPrefix     string   `json:"modelPrefix,omitempty"`     // keep ids with this prefix; operator-only
+	RuntimeProvider string   `json:"runtimeProvider,omitempty"` // provider the UI saves on the agent
+	KeyEnv          string   `json:"keyEnv,omitempty"`
+	KeyURL          string   `json:"keyURL,omitempty"`   // documentation link; the operator never fetches it
+	KeySteps        []string `json:"keySteps,omitempty"` // how to create or retrieve KeyEnv
 }
 
 // PublicProvider is what the UI sees: no models URL, so the browser cannot learn or choose the upstream.
 // KeyURL is a page the user opens; it is not a host the operator calls.
 type PublicProvider struct {
-	ID       string   `json:"id"`
-	Label    string   `json:"label"`
-	NeedsKey bool     `json:"needsKey"`
-	KeyEnv   string   `json:"keyEnv,omitempty"`
-	KeyURL   string   `json:"keyURL,omitempty"`
-	KeySteps []string `json:"keySteps,omitempty"`
+	ID              string   `json:"id"`
+	Label           string   `json:"label"`
+	NeedsKey        bool     `json:"needsKey"`
+	RuntimeProvider string   `json:"runtimeProvider,omitempty"`
+	KeyEnv          string   `json:"keyEnv,omitempty"`
+	KeyURL          string   `json:"keyURL,omitempty"`
+	KeySteps        []string `json:"keySteps,omitempty"`
 }
 
 // Public lists the providers for the UI dropdown.
@@ -51,8 +55,8 @@ func (c *Catalog) Public() []PublicProvider {
 	out := make([]PublicProvider, 0, len(c.Providers))
 	for _, p := range c.Providers {
 		out = append(out, PublicProvider{
-			ID: p.ID, Label: p.Label, NeedsKey: p.NeedsKey(), KeyEnv: p.KeyEnv,
-			KeyURL: p.KeyURL, KeySteps: p.KeySteps,
+			ID: p.ID, Label: p.Label, NeedsKey: p.NeedsKey(), RuntimeProvider: p.RuntimeProvider,
+			KeyEnv: p.KeyEnv, KeyURL: p.KeyURL, KeySteps: p.KeySteps,
 		})
 	}
 	return out
@@ -185,9 +189,10 @@ func (c *Catalog) fetch(ctx context.Context, p *Provider, key string) ([]string,
 	}
 	out := make([]string, 0, len(body.Data))
 	for _, m := range body.Data {
-		if m.ID != "" {
-			out = append(out, m.ID)
+		if m.ID == "" || (p.ModelPrefix != "" && !strings.HasPrefix(m.ID, p.ModelPrefix)) {
+			continue
 		}
+		out = append(out, m.ID)
 	}
 	sort.Strings(out)
 	return out, nil

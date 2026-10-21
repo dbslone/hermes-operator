@@ -209,7 +209,12 @@ async function loadModels() {
     if (seq !== modelSeq) return;
     if (r.models && r.models.length) {
       showModelSelect(r.models);
-      note.textContent = `${r.models.length} models from ${p.label}. Choose "Other…" to type any model id.`;
+      const source = p.runtimeProvider
+        ? ((providers.find((x) => x.id === p.runtimeProvider) || {}).label || p.runtimeProvider)
+        : p.label;
+      let msg = `${r.models.length} models from ${source}.`;
+      if (p.runtimeProvider && p.keyEnv) msg += ` Save ${p.keyEnv} under Advanced.`;
+      note.textContent = `${msg} Choose "Other…" to type any model id.`;
     } else {
       showModelText();
       note.textContent = `No models returned from ${p.label}. Type a model id.`;
@@ -237,7 +242,7 @@ async function createAgent() {
   const requests = pick('cpuReq', 'memReq'), limits = pick('cpuLim', 'memLim');
   const body = { name: $('name').value, soul: $('soul').value, env, dashboard: $('dash').checked,
     storageSize: $('storage').value,
-    model: { provider: providerId(), name: modelName(), baseURL: $('baseurl').value } };
+    model: { provider: (p && p.runtimeProvider) || providerId(), name: modelName(), baseURL: $('baseurl').value } };
   if (Object.keys(requests).length || Object.keys(limits).length) body.resources = { requests, limits };
   try {
     await api('api/agents', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
