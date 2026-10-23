@@ -15,7 +15,7 @@ Spin up [Hermes agents](https://github.com/NousResearch/hermes-agent) on Kuberne
 
 ```sh
 helm install hermes-operator oci://ghcr.io/dbslone/charts/hermes-operator \
-  --version 0.0.7 -n hermes --create-namespace
+  --version 0.0.8 -n hermes --create-namespace
 kubectl -n hermes port-forward svc/hermes-operator 8080:80   # UI: http://localhost:8080
 ```
 
@@ -27,7 +27,7 @@ By default the operator watches, and creates agents in, **the namespace it is in
 # Chart.yaml
 dependencies:
   - name: hermes-operator
-    version: 0.0.7
+    version: 0.0.8
     repository: oci://ghcr.io/dbslone/charts
 ```
 ```yaml
@@ -63,7 +63,7 @@ spec:
     - { group: apiextensions.k8s.io, kind: CustomResourceDefinition }
 ```
 
-The `default` project already allows everything. Then point an Application at the OCI chart (`repoURL: ghcr.io/dbslone/charts`, `chart: hermes-operator`, `targetRevision: 0.0.7`, source type OCI) or add it as a dependency as above. With Helm directly there is nothing to configure: it installs the CRD on first install.
+The `default` project already allows everything. Then point an Application at the OCI chart (`repoURL: ghcr.io/dbslone/charts`, `chart: hermes-operator`, `targetRevision: 0.0.8`, source type OCI) or add it as a dependency as above. With Helm directly there is nothing to configure: it installs the CRD on first install.
 
 > Helm installs CRDs only on first install and never upgrades them. To upgrade the CRD run
 > `kubectl apply -f charts/hermes-operator/crds/`. Uninstalling the chart leaves the CRD (and so your agents and their data) in place.

@@ -2,7 +2,7 @@
 
 - **Status:** done
 - **Date:** 2026-10-23
-- **PR:** unreleased
+- **PR:** release 0.0.8
 - **Related plans:** [0012](0012-inline-provider-key.md), [0013](0013-anthropic-models-from-openrouter.md)
 
 ## Why
@@ -17,6 +17,7 @@ This reverses the "API key line stays hidden" part of [0013](0013-anthropic-mode
 - For a provider whose listing needs no key, typing a key does not reload the model list.
 - Submitting without the provider's key, in either the key line or Advanced, shows a warning and does not create the agent. A second click creates it anyway, for operators that share keys through `defaults.envFromSecret`.
 - The model note no longer says "Save … under Advanced". The OpenRouter and Anthropic key steps now point at the key line.
+- Version 0.0.8 (Chart, MCP serverInfo, README).
 
 ## Design and alternatives
 
@@ -35,7 +36,7 @@ Making the key required would break installs that share a key through the operat
 
 ## Risks, rollout, rollback
 
-UI only. No CRD or API change. Agents created earlier without a key need one added by hand: create a Secret with `OPENROUTER_API_KEY` and add it to `spec.envFrom`.
+UI only. No CRD or API change. Ships in 0.0.8: tag `0.0.8` to publish the image and chart, then bump `targetRevision`. Agents created earlier without a key need one added by hand: create a Secret with `OPENROUTER_API_KEY` and add it to `spec.envFrom`.
 
 ## Follow-ups
 

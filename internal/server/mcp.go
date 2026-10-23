@@ -96,7 +96,7 @@ func mcpHandler(svc *agent.Service) http.Handler {
 			resp.Result = map[string]any{
 				"protocolVersion": "2025-03-26",
 				"capabilities":    map[string]any{"tools": map[string]any{}},
-				"serverInfo":      map[string]any{"name": "hermes-operator", "version": "0.0.7"},
+				"serverInfo":      map[string]any{"name": "hermes-operator", "version": "0.0.8"},
 			}
 		case "ping":
 			resp.Result = map[string]any{}
