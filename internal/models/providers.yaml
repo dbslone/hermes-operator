@@ -13,7 +13,7 @@
     - Sign in at the OpenRouter keys page, or create an account.
     - Click Create Key, name it, and optionally set a credit limit.
     - Copy the key immediately. It starts with sk-or- and cannot be shown again.
-    - Paste it below. This key is saved on the agent. Listing models does not require it.
+    - Paste it below. This key is saved on the agent and used to call the model.
 - id: anthropic
   label: Anthropic
   modelsURL: https://openrouter.ai/api/v1/models
@@ -27,7 +27,7 @@
     - Sign in at the OpenRouter keys page, or create an account.
     - Click Create Key, name it, and optionally set a credit limit.
     - Copy the key immediately. It starts with sk-or- and cannot be shown again.
-    - Paste it under Advanced as OPENROUTER_API_KEY. OpenRouter bills these models.
+    - Paste it in the API key line. OpenRouter bills these models.
 - id: openai-api
   label: OpenAI
   modelsURL: https://api.openai.com/v1/models

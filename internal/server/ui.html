@@ -168,10 +168,11 @@ function safeURL(u) {
   try { const x = new URL(u); return x.protocol === 'https:' || x.protocol === 'http:' ? x.href : ''; }
   catch (e) { return ''; }
 }
-// The API key line sits between provider and model only when that provider needs a key.
+// The API key line sits between provider and model for every provider with a key env:
+// the agent needs the key at runtime even when listing models does not (needsKey).
 function syncKeyRow() {
   const p = knownProvider();
-  if (!p || !p.needsKey) { $('keyRow').hidden = true; return; }
+  if (!p || !p.keyEnv) { $('keyRow').hidden = true; return; }
   $('keyRow').hidden = false;
   const ol = $('keySteps');
   ol.replaceChildren();
@@ -212,9 +213,7 @@ async function loadModels() {
       const source = p.runtimeProvider
         ? ((providers.find((x) => x.id === p.runtimeProvider) || {}).label || p.runtimeProvider)
         : p.label;
-      let msg = `${r.models.length} models from ${source}.`;
-      if (p.runtimeProvider && p.keyEnv) msg += ` Save ${p.keyEnv} under Advanced.`;
-      note.textContent = `${msg} Choose "Other…" to type any model id.`;
+      note.textContent = `${r.models.length} models from ${source}. Choose "Other…" to type any model id.`;
     } else {
       showModelText();
       note.textContent = `No models returned from ${p.label}. Type a model id.`;
@@ -226,10 +225,14 @@ async function loadModels() {
 }
 $('provider').onchange = scheduleModels;
 $('providerCustom').oninput = scheduleModels;
-$('apiKey').oninput = () => { shownProvider = providerId(); scheduleModels(); };
+$('apiKey').oninput = () => {
+  missingKeyWarned = false;
+  if (knownProvider() && !knownProvider().needsKey) return; // listing doesn't use it
+  shownProvider = providerId(); scheduleModels();
+};
 $('env').onchange = () => { shownProvider = providerId(); scheduleModels(); };
 $('new').onclick = async () => {
-  $('err').textContent = ''; $('modelErr').textContent = ''; $('apiKey').value = ''; shownProvider = '';
+  $('err').textContent = ''; $('modelErr').textContent = ''; $('apiKey').value = ''; shownProvider = ''; missingKeyWarned = false;
   $('dlg').showModal(); await loadProviders(); scheduleModels();
 };
 $('cancel').onclick = () => $('dlg').close();
@@ -249,9 +252,19 @@ async function createAgent() {
     $('dlg').close(); $('form').reset(); $('apiKey').value = ''; shownProvider = ''; showModelText(); load();
   } catch (e) { $('err').textContent = e.message; }
 }
+// Without its key the agent cannot call the model, so warn once; a second click creates
+// anyway for operators that share keys through the defaults secret.
+let missingKeyWarned = false;
 $('form').onsubmit = async ev => {
   ev.preventDefault();
-  if (knownProvider() && knownProvider().needsKey && !keyValue()) { disableModel('API key is required'); return; }
+  const p = knownProvider();
+  if (p && p.needsKey && !keyValue()) { disableModel('API key is required'); return; }
+  if (p && p.keyEnv && !keyValue() && !envMap()[p.keyEnv] && !missingKeyWarned) {
+    missingKeyWarned = true;
+    $('err').textContent = `No ${p.keyEnv} entered. The agent cannot call the model without it unless the operator shares one. Click Create again to continue anyway.`;
+    return;
+  }
+  missingKeyWarned = false;
   await createAgent();
 };
 load(); setInterval(load, 4000);

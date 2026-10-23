@@ -94,7 +94,6 @@ test('choosing a provider turns model into a select of its models', async () => 
   const ui = load({ models: byProvider });
   await ui.open();
   await ui.pickProvider('openrouter');
-  assert.equal(ui.$('keyRow').hidden, true);
   assert.equal(ui.$('modelSel').hidden, false);
   assert.equal(ui.$('modelSel').disabled, false);
   assert.equal(ui.$('model').hidden, true);
@@ -108,6 +107,7 @@ test('the selected model and provider are submitted', async () => {
   await ui.open();
   await ui.pickProvider('openrouter');
   ui.pickModel('b/two');
+  ui.$('apiKey').value = 'sk-or-1';
   await ui.submit('bot');
   assert.equal(ui.calls.created.length, 1);
   assert.equal(ui.calls.created[0].model.provider, 'openrouter');
@@ -127,17 +127,47 @@ test('Anthropic listed from OpenRouter submits the OpenRouter provider', async (
   });
   await ui.open();
   await ui.pickProvider('anthropic');
-  assert.equal(ui.$('keyRow').hidden, true);
+  assert.equal(ui.$('keyRow').hidden, false);
   assert.equal(ui.$('modelSel').disabled, false);
   assert.equal(ui.calls.models.length, 1);
   assert.equal(ui.calls.models[0].provider, 'anthropic');
   assert.equal(ui.calls.models[0].apiKey, '');
   assert.match(ui.$('modelNote').textContent, /1 models from OpenRouter/);
-  assert.match(ui.$('modelNote').textContent, /Save OPENROUTER_API_KEY under Advanced/);
   ui.pickModel('anthropic/claude-x');
+  ui.$('apiKey').value = 'sk-or-1';
+  ui.$('apiKey').dispatchEvent(new ui.w.Event('input', { bubbles: true }));
+  await new Promise((r) => setTimeout(r, 250));
+  assert.equal(ui.calls.models.length, 1, 'typing a key the listing does not need must not reload models');
   await ui.submit('bot');
   assert.equal(ui.calls.created[0].model.provider, 'openrouter');
   assert.equal(ui.calls.created[0].model.name, 'anthropic/claude-x');
+  assert.equal(ui.calls.created[0].env.OPENROUTER_API_KEY, 'sk-or-1');
+});
+
+// Regression: agents were created with no provider key, so Hermes had no credentials
+// and `hermes model` fell back to Anthropic OAuth (which needs the claude CLI).
+test('a provider whose listing needs no key still asks for the runtime key before create', async () => {
+  const ui = load({ models: byProvider });
+  await ui.open();
+  await ui.pickProvider('openrouter');
+  assert.equal(ui.$('keyRow').hidden, false);
+  ui.pickModel('a/one');
+  await ui.submit('bot');
+  assert.equal(ui.calls.created.length, 0);
+  assert.match(ui.$('err').textContent, /OPENROUTER_API_KEY/);
+  await ui.submit('bot'); // second click creates anyway, for a shared operator key
+  assert.equal(ui.calls.created.length, 1);
+  assert.equal(ui.calls.created[0].env.OPENROUTER_API_KEY, undefined);
+});
+
+test('a runtime key under Advanced counts as set', async () => {
+  const ui = load({ models: byProvider });
+  await ui.open();
+  await ui.pickProvider('openrouter');
+  await ui.setKeys('OPENROUTER_API_KEY=sk-or-2');
+  await ui.submit('bot');
+  assert.equal(ui.calls.created.length, 1);
+  assert.equal(ui.calls.created[0].env.OPENROUTER_API_KEY, 'sk-or-2');
 });
 
 test('a provider that needs a key shows the key line and disables model until it is entered', async () => {
@@ -236,6 +266,7 @@ test('Other… reveals the text box and its value is submitted', async () => {
   ui.pickModel('__custom');
   assert.equal(ui.$('model').hidden, false);
   ui.$('model').value = 'my-model';
+  ui.$('apiKey').value = 'sk-or-1';
   await ui.submit('bot2');
   assert.equal(ui.calls.created[0].model.name, 'my-model');
 });

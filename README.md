@@ -178,6 +178,7 @@ Design decisions, test strategy and review gates live in [`plans/`](plans/). Eve
 | [0011 – Model key wizard](plans/0011-model-key-wizard.md) | When a model list cannot be loaded, ask for an API key (with steps) and then which model |
 | [0012 – Inline provider, key, and model](plans/0012-inline-provider-key.md) | One screen: Default provider, key between provider and model, model disabled until the key is entered |
 | [0013 – Anthropic models from OpenRouter](plans/0013-anthropic-models-from-openrouter.md) | Claude model list comes from OpenRouter; the agent is saved as provider openrouter |
+| [0014 – Always ask for the runtime key](plans/0014-always-ask-runtime-key.md) | The API key line shows for every provider; create warns when the agent would have no key |
 | [Template](plans/TEMPLATE.md) | Copy to `plans/NNNN-slug.md` for your PR |
 
 ## License
